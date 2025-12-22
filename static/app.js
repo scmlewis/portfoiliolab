@@ -167,11 +167,16 @@ function setupAllocationBuilder() {
     }
     
     const slidersContainer = document.getElementById('allocationSliders');
-    const equalWeight = 1 / currentSymbols.length;
+    const numSymbols = currentSymbols.length;
+    const basePercentage = Math.floor(100 / numSymbols);
+    const remainder = 100 % numSymbols;
+    
     let html = '';
+    let sliderIndex = 0;
     
     for (const symbol of currentSymbols) {
-        const percentage = Math.round(equalWeight * 100);
+        // Distribute remainder across first few sliders to ensure total = 100%
+        const percentage = basePercentage + (sliderIndex < remainder ? 1 : 0);
         html += `
             <div class="allocation-slider-item">
                 <label>${symbol}</label>
@@ -186,6 +191,7 @@ function setupAllocationBuilder() {
                 </div>
             </div>
         `;
+        sliderIndex++;
     }
     
     slidersContainer.innerHTML = html;
