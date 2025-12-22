@@ -35,8 +35,9 @@ class Strategies:
         def strategy(backtester, portfolio, date_index):
             if date_index == 0:
                 total_allocation = sum(allocations.values())
-                if total_allocation > 1.0:
-                    raise ValueError("Total allocation exceeds 100%")
+                # Use tolerance for floating point comparison (epsilon = 1e-9)
+                if total_allocation > 1.0 + 1e-9:
+                    raise ValueError(f"Total allocation exceeds 100% (got {total_allocation*100:.2f}%)")
                 
                 for symbol, allocation in allocations.items():
                     asset = backtester.assets[symbol]
