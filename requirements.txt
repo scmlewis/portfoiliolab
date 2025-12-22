@@ -7,6 +7,7 @@ gunicorn>=21.2.0          # Production WSGI server for Render
 # Optional enhancements
 pandas>=1.3.0             # Data manipulation
 numpy>=1.21.0             # Numerical computing
+scipy>=1.9.0              # Scientific computing (for portfolio optimization)
 matplotlib>=3.4.0         # Plotting
 jupyter>=1.0.0            # Interactive notebooks
 
