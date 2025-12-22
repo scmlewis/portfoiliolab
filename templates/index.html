@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PortfolioLab - Backtest & Optimize Strategies</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%232563eb' width='100' height='100'/><text x='50' y='70' font-size='60' font-weight='bold' text-anchor='middle' fill='white'>📈</text></svg>">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="/static/collapsible.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <div>
+                    <h1>📈 PortfolioLab</h1>
+                    <p class="subtitle">Backtest strategies • Optimize portfolios • Real data from Yahoo Finance</p>
+                </div>
+                <button id="darkModeToggle" class="dark-mode-btn" title="Toggle dark mode">
+                    🌙
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <div class="grid">
+                <!-- Left Panel: Input -->
+                <div class="panel input-panel">
+                    <h2>⚙️ Configuration</h2>
+                    
+                    <form id="configForm">
+                        <!-- Data Source -->
+                        <fieldset class="collapsible expanded" data-section="dataSource">
+                            <legend class="collapsible-header">
+                                <span class="collapse-icon">▼</span>
+                                📊 Data Source (Yahoo Finance)
+                            </legend>
+                            <div class="fieldset-content">
+                            
+                            <label>
+                                <span>Symbols (comma separated)</span>
+                                <div class="symbols-input-wrapper">
+                                    <input type="text" id="symbols" 
+                                           placeholder="AAPL, MSFT, GOOGL, BND" 
+                                           value="AAPL, MSFT, GOOGL, BND"
+                                           autocomplete="off">
+                                    <ul id="symbolsAutocomplete" class="autocomplete-list hidden"></ul>
+                                    <div id="symbolsValidation" class="symbols-validation hidden"></div>
+                                </div>
+                            </label>
+                            
+                            <div class="date-range">
+                                <label>
+                                    <span>Start Date</span>
+                                    <input type="date" id="startDate">
+                                </label>
+                                <label>
+                                    <span>End Date</span>
+                                    <input type="date" id="endDate">
+                                </label>
+                            </div>
+                            
+                            <button type="button" id="loadRealDataBtn" class="btn-secondary">
+                                Load Real Data
+                            </button>
+                            </div>
+                        </fieldset>
+                        
+                        <!-- Portfolio Settings -->
+                        <fieldset class="collapsible expanded" data-section="settings">
+                            <legend class="collapsible-header">
+                                <span class="collapse-icon">▼</span>
+                                💰 Settings
+                            </legend>
+                            <div class="fieldset-content">
+                            
+                            <label>
+                                <span>Initial Capital ($)</span>
+                                <input type="number" id="initialCapital" 
+                                       value="100000" min="1000" step="1000">
+                            </label>
+                            </div>
+                        </fieldset>
+                        
+                        <!-- Strategy Selection -->
+                        <fieldset class="collapsible collapsed" data-section="strategy">
+                            <legend class="collapsible-header">
+                                <span class="collapse-icon">▶</span>
+                                🎯 Strategy
+                            </legend>
+                            <div class="fieldset-content hidden">
+                            
+                            <div class="config-controls">
+                                <label class="save-config">
+                                    <span>Save Configuration As:</span>
+                                    <div style="display: flex; gap: 5px;">
+                                        <input type="text" id="configName" placeholder="e.g., My 60/40 Portfolio">
+                                        <button type="button" id="saveConfigBtn" class="btn-tiny">Save</button>
+                                    </div>
+                                </label>
+                                
+                                <label class="load-config">
+                                    <span>Load Saved Configuration:</span>
+                                    <div style="display: flex; gap: 5px;">
+                                        <select id="savedConfigs">
+                                            <option value="">-- No saved configs --</option>
+                                        </select>
+                                        <button type="button" id="loadConfigBtn" class="btn-tiny">Load</button>
+                                        <button type="button" id="deleteConfigBtn" class="btn-tiny" style="background: #dc2626;">Delete</button>
+                                    </div>
+                                </label>
+                            </div>
+                            
+                            <label>
+                                <span>Select Strategy</span>
+                                <select id="strategySelect">
+                                    <option value="">Choose a strategy...</option>
+                                </select>
+                            </label>
+                            
+                            <div id="presetTemplates" class="preset-templates">
+                                <span style="font-size: 0.9em; color: #666;">Quick Presets:</span>
+                                <div class="preset-buttons">
+                                    <button type="button" class="preset-btn" data-preset="conservative">Conservative (60/40)</button>
+                                    <button type="button" class="preset-btn" data-preset="balanced">Balanced (50/50)</button>
+                                    <button type="button" class="preset-btn" data-preset="aggressive">Aggressive (80/20)</button>
+                                    <button type="button" class="preset-btn" data-preset="growth">Growth (100% Stocks)</button>
+                                </div>
+                            </div>
+                            
+                            <div id="strategyParams"></div>
+                            
+                            <button type="button" id="backtestBtn" class="btn-primary">
+                                Run Backtest
+                            </button>
+                            </div>
+                        </fieldset>
+                        
+                        <!-- Multiple Comparison -->
+                        <fieldset class="collapsible collapsed" data-section="compare">
+                            <legend class="collapsible-header">
+                                <span class="collapse-icon">▶</span>
+                                📊 Compare Strategies
+                            </legend>
+                            <div class="fieldset-content hidden">
+                            
+                            <button type="button" id="quickCompareBtn" class="btn-secondary">
+                                Quick Compare (4 Strategies)
+                            </button>
+                            </div>
+                        </fieldset>
+                        
+                        <!-- Portfolio Optimization -->
+                        <fieldset class="collapsible collapsed" data-section="optimization">
+                            <legend class="collapsible-header">
+                                <span class="collapse-icon">▶</span>
+                                🎯 Portfolio Optimization
+                            </legend>
+                            <div class="fieldset-content hidden">
+                            
+                            <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+                                Optimize asset allocation using Modern Portfolio Theory
+                            </p>
+                            
+                            <label class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="optimizationType" value="sharpe" checked>
+                                    <span>Max Sharpe Ratio</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="optimizationType" value="minvar">
+                                    <span>Min Variance</span>
+                                </label>
+                            </label>
+                            
+                            <button type="button" id="optimizeBtn" class="btn-secondary">
+                                Optimize Portfolio
+                            </button>
+                            
+                            <button type="button" id="frontierBtn" class="btn-secondary">
+                                Calculate Efficient Frontier
+                            </button>
+                            </div>
+                        </fieldset>
+                    </form>
+                </div>
+
+                <!-- Right Panel: Results -->
+                <div class="panel result-panel">
+                    <h2>📈 Results</h2>
+                    
+                    <!-- Tabs -->
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="backtest">Backtest</button>
+                        <button class="tab-btn" data-tab="optimization">Optimization</button>
+                    </div>
+                    
+                    <!-- Status -->
+                    <div id="status" class="status hidden"></div>
+                    
+                    <!-- BACKTEST TAB -->
+                    <div id="backtest-tab" class="tab-content active">
+                        <!-- Single Backtest Results -->
+                        <div id="singleResults" class="results-section hidden">
+                            <h3 id="strategyName"></h3>
+                            
+                            <div class="metrics-grid">
+                                <div class="metric">
+                                    <label>Total Return</label>
+                                    <div class="value" id="totalReturn">-</div>
+                                </div>
+                                <div class="metric">
+                                    <label>Annual Return</label>
+                                    <div class="value" id="annualReturn">-</div>
+                                </div>
+                                <div class="metric">
+                                    <label>Max Drawdown</label>
+                                    <div class="value negative" id="maxDD">-</div>
+                                </div>
+                                <div class="metric">
+                                    <label>Sharpe Ratio</label>
+                                    <div class="value" id="sharpeRatio">-</div>
+                                </div>
+                            </div>
+                            
+                            <div class="metrics-secondary">
+                                <div class="metric-row">
+                                    <span>Initial Value:</span>
+                                    <strong id="initialVal">-</strong>
+                                </div>
+                                <div class="metric-row">
+                                    <span>Final Value:</span>
+                                    <strong id="finalVal">-</strong>
+                                </div>
+                                <div class="metric-row">
+                                    <span>Period:</span>
+                                    <strong id="period">-</strong>
+                                </div>
+                            </div>
+                            
+                            <div class="chart-container">
+                                <canvas id="equityChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Comparison Results -->
+                        <div id="comparisonResults" class="results-section hidden">
+                            <h3>Strategy Comparison</h3>
+                            
+                            <div class="chart-container">
+                                <canvas id="comparisonChart"></canvas>
+                            </div>
+                            
+                            <div id="bestMetrics" class="best-metrics">
+                                <div class="best-item">
+                                    <span>Best Return:</span>
+                                    <strong id="bestReturn">-</strong>
+                                </div>
+                                <div class="best-item">
+                                    <span>Best Sharpe:</span>
+                                    <strong id="bestSharpe">-</strong>
+                                </div>
+                                <div class="best-item">
+                                    <span>Best Drawdown:</span>
+                                    <strong id="bestDD">-</strong>
+                                </div>
+                            </div>
+                            
+                            <table id="comparisonTable" class="comparison-table">
+                                <thead>
+                                    <tr>
+                                        <th>Strategy</th>
+                                        <th>Initial</th>
+                                        <th>Final</th>
+                                        <th>Return %</th>
+                                        <th>Annual %</th>
+                                        <th>Max DD %</th>
+                                        <th>Sharpe</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comparisonBody"></tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Empty State -->
+                        <div id="emptyState" class="empty-state">
+                            <p>👈 Select a strategy and click "Run Backtest" to see results</p>
+                        </div>
+                    </div>
+                    
+                    <!-- OPTIMIZATION TAB -->
+                    <div id="optimization-tab" class="tab-content hidden">
+                        
+                        <!-- Optimization Results -->
+                        <div id="optimizationResults" class="results-section hidden">
+                            <h3 id="optimizationTitle">Portfolio Optimization</h3>
+                            
+                            <div class="metrics-grid">
+                                <div class="metric">
+                                    <label>Expected Return</label>
+                                    <div class="value" id="optExpectedReturn">-</div>
+                                </div>
+                                <div class="metric">
+                                    <label>Volatility</label>
+                                    <div class="value" id="optVolatility">-</div>
+                                </div>
+                                <div class="metric">
+                                    <label>Sharpe Ratio</label>
+                                    <div class="value" id="optSharpeRatio">-</div>
+                                </div>
+                            </div>
+                            
+                            <h4>Optimal Weights</h4>
+                            <div id="weightsTable" class="weights-table"></div>
+                            
+                            <h4>Asset Statistics</h4>
+                            <div id="assetStatsTable" class="asset-stats-table"></div>
+                            
+                            <h4>Correlation Matrix</h4>
+                            <div id="correlationTable" class="correlation-table"></div>
+                        </div>
+                        
+                        <!-- Efficient Frontier -->
+                        <div id="frontierResults" class="results-section hidden">
+                            <h3>Efficient Frontier</h3>
+                            
+                            <div class="metrics-grid">
+                                <div class="metric">
+                                    <label>Max Sharpe</label>
+                                    <div class="value" id="frontierMaxSharpe">-</div>
+                                </div>
+                                <div class="metric">
+                                    <label>Min Variance Vol</label>
+                                    <div class="value" id="frontierMinVar">-</div>
+                                </div>
+                                <div class="metric">
+                                    <label>Points</label>
+                                    <div class="value" id="frontierPoints">-</div>
+                                </div>
+                            </div>
+                            
+                            <div class="chart-container">
+                                <canvas id="frontierChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Empty State -->
+                        <div id="emptyStateOpt" class="empty-state">
+                            <p>👈 Click "Optimize Portfolio" or "Calculate Efficient Frontier" to see results</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>PortfolioLab • Advanced Backtesting & Portfolio Optimization • Real data from Yahoo Finance • 
+               <a href="https://finance.yahoo.com" target="_blank">Data source</a></p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
