@@ -35,11 +35,20 @@ class Strategies:
         def strategy(backtester, portfolio, date_index):
             if date_index == 0:
                 total_allocation = sum(allocations.values())
-                # Use tolerance for floating point comparison (epsilon = 1e-9)
-                if total_allocation > 1.0 + 1e-9:
+                # Normalize allocations if they exceed 1.0 due to floating-point precision
+                if total_allocation > 1.0 + 1e-6:  # Use larger tolerance for rounding errors
                     raise ValueError(f"Total allocation exceeds 100% (got {total_allocation*100:.2f}%)")
                 
-                for symbol, allocation in allocations.items():
+                # Normalize to handle floating-point precision (sum to exactly 1.0)
+                if total_allocation > 0:
+                    normalized_allocations = {
+                        symbol: allocation / total_allocation 
+                        for symbol, allocation in allocations.items()
+                    }
+                else:
+                    normalized_allocations = allocations
+                
+                for symbol, allocation in normalized_allocations.items():
                     asset = backtester.assets[symbol]
                     price = asset.get_price(date_index)
                     capital = portfolio.initial_capital * allocation
@@ -99,6 +108,19 @@ class Strategies:
                               date_index % rebalance_frequency == 0)
             
             if should_rebalance:
+                # Normalize allocations to handle floating-point precision
+                total_allocation = sum(allocations.values())
+                if total_allocation > 1.0 + 1e-6:
+                    raise ValueError(f"Total allocation exceeds 100% (got {total_allocation*100:.2f}%)")
+                
+                if total_allocation > 0:
+                    normalized_allocations = {
+                        symbol: allocation / total_allocation 
+                        for symbol, allocation in allocations.items()
+                    }
+                else:
+                    normalized_allocations = allocations
+                
                 # Sell all positions
                 symbols_to_sell = list(portfolio.positions.keys())
                 for symbol in symbols_to_sell:
@@ -109,7 +131,7 @@ class Strategies:
                 
                 # Buy new allocations
                 total_value = portfolio.get_value(date_index)
-                for symbol, allocation in allocations.items():
+                for symbol, allocation in normalized_allocations.items():
                     asset = backtester.assets[symbol]
                     price = asset.get_price(date_index)
                     capital = total_value * allocation
