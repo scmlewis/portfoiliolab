@@ -1,98 +1,97 @@
-# Investment Backtester MVP
+# Portfolio Backtester
 
-A simple but functional investment backtester supporting multiple asset types and strategy comparison.
+A Flask-based web application for backtesting investment portfolios with real market data, multiple strategies, and interactive visualizations.
+
+🌐 **Live Demo**: [https://portfoiliolab.onrender.com](https://portfoiliolab.onrender.com)
 
 ## Quick Start
 
+### Local Development
+
 ```bash
-# Option 1: Standalone (easiest - no setup needed)
-python backtester_standalone.py
+# Install dependencies
+pip install -r requirements.txt
 
-# Option 2: Modular structure
-python examples/example_backtest.py
-
-# Option 3: Windows batch file
-run_backtester.bat
+# Run the Flask app
+python app.py
 ```
+
+Visit `http://localhost:5000` to use the web interface.
+
+### Production Deployment
+
+Deployed on [Render](https://render.com) with automatic deployments from GitHub.
 
 ## Features
 
-- ✅ **Multiple Asset Types**: Stocks, Bonds, Crypto, Commodities
-- ✅ **7+ Trading Strategies**: Buy & Hold, Balanced, Momentum, Rebalancing, etc.
-- ✅ **Performance Metrics**: Returns, Annual Return, Max Drawdown, Sharpe Ratio
-- ✅ **Strategy Comparison**: Compare multiple strategies side-by-side
-- ✅ **Portfolio Tracking**: Monitor positions, value, and performance over time
-- ✅ **Zero Dependencies**: Uses only Python standard library
-- ✅ **Extensible**: Easy to add custom strategies and assets
+- 📊 **Real Market Data**: Fetch live stock prices from Yahoo Finance
+- 🎯 **Multiple Strategies**: Buy & Hold, Balanced Portfolio, Momentum, Rebalancing
+- 📈 **Interactive Charts**: Visualize equity curves with Chart.js
+- 📱 **Mobile Responsive**: Clean, modern UI that works on all devices
+- ⚡ **Quick Compare**: Side-by-side strategy comparison
+- 🔧 **Custom Allocations**: Build your own portfolio with slider controls
+- 📉 **Performance Metrics**: Returns, Max Drawdown, Sharpe Ratio, and more
 
 ## Project Structure
 
 ```
-backtester/
-├── backtester_standalone.py    # ⭐ Self-contained (easiest to use)
-├── run_backtester.bat          # Windows batch runner
-├── requirements.txt            # Python dependencies (none needed!)
-├── GUIDE.md                    # Comprehensive user guide
-├── QUICK_REFERENCE.py          # Copy-paste examples
+portfoiliolab/
+├── app.py                     # Flask application and API endpoints
+├── requirements.txt           # Python dependencies
+├── Procfile                   # Render deployment configuration
+├── runtime.txt                # Python version specification
+├── README.md                  # This file
 │
-├── src/                        # Modular structure (optional)
+├── src/                       # Core backtesting engine
 │   ├── __init__.py
-│   ├── assets.py              # Asset class definitions
-│   ├── backtester.py          # Core backtesting engine
-│   ├── data_generator.py      # Price data generation
-│   └── strategies.py          # Trading strategy implementations
+│   ├── assets.py             # Asset class definitions
+│   ├── backtester.py         # Backtesting engine
+│   ├── data_generator.py     # Market data fetching (Yahoo Finance)
+│   └── strategies.py         # Strategy implementations
 │
-├── examples/
-│   └── example_backtest.py    # Full example with 7 strategies
+├── templates/
+│   └── index.html            # Main web interface
 │
-└── data/                      # (For user's custom data)
+├── static/
+│   ├── style.css             # Responsive CSS
+│   ├── app.js                # Frontend JavaScript
+│   └── collapsible.js        # UI interactions
+│
+└── Web Interface
+
+1. Enter stock ticker symbols (e.g., AAPL, MSFT, GOOGL)
+2. Set date range for backtesting
+3. Choose a strategy or build custom allocations
+4. Click "Run Backtest" to see results
+5. View equity curve, metrics, and comparison table
+
+### API Endpoints
+
+#### POST `/api/backtest`
+Run a backtest with specified parameters.
+
+```json
+{
+  "symbols": ["AAPL", "MSFT", "GOOGL"],
+  "start_date": "2023-01-01",
+  "end_date": "2024-01-01",
+  "initial_capital": 100000,
+  "strategy": "balanced_portfolio",
+  "allocations": {"AAPL": 0.33, "MSFT": 0.33, "GOOGL": 0.34}
+}
 ```
 
-## Usage
+#### POST `/api/compare`
+Compare multiple strategies side-by-side.
 
-### Basic Buy & Hold
-
-```python
-from src.data_generator import create_sample_assets
-from src.backtester import Backtester
-from src.strategies import Strategies
-
-# Create assets
-assets = create_sample_assets()
-
-# Create backtester
-backtester = Backtester(assets)
-
-# Run strategy
-result = backtester.run(
-    strategy_func=Strategies.buy_and_hold("TECH"),
-    initial_capital=100000,
-    strategy_name="My Strategy"
-)
-
-print(f"Total Return: {result.total_return*100:.2f}%")
-print(f"Sharpe Ratio: {result.sharpe_ratio:.2f}")
-```
-
-### Balanced Portfolio
-
-```python
-result = backtester.run(
-    strategy_func=Strategies.balanced_portfolio({
-        "TECH": 0.3,
-        "DIVIDEND": 0.3,
-        "BOND": 0.4
-    }),
-    initial_capital=100000,
-    strategy_name="60/40 Portfolio"
-)
-```
-
-### Compare Strategies
-
-```python
-from src.backtester import Comparator
-
+```json
+{
+  "symbols": ["AAPL", "MSFT"],
+  "start_date": "2023-01-01",
+  "end_date": "2024-01-01",
+  "initial_capital": 100000,
+  "strategies": ["buy_and_hold", "balanced_portfolio"]
+}
 results = [result1, result2, result3]
 comparator = Comparator(results)
 
@@ -115,65 +114,78 @@ best = comparator.get_best("total_return")
 - **CRYPTO**: Highly volatile alternative asset
 - **COMMODITY**: Commodity price movements
 
-## Performance Metrics
+## PeBuy & Hold** - Purchase and hold all assets equally
+2. **Balanced Portfolio** - Custom allocation across assets
+3. **Momentum Strategy** - Moving average crossover (20/50 day)
+4. **Rebalancing Strategy** - Periodic rebalancing (monthly)
 
-- **Total Return**: Overall profit/loss percentage
-- **Annual Return**: Annualized return (for strategies > 1 year)
-- **Max Drawdown**: Largest peak-to-trough decline
-- **Sharpe Ratio**: Risk-adjusted return (annualized)
+## Supported Assets
 
-## Running Examples
-
-```bash
-cd backtester
-python examples/example_backtest.py
+- **Stocks**: Any ticker available on Yahoo Finance (AAPL, MSFT, GOOGL, etc.)
+- **ETFs**: Index funds, sector ETFs, bond ETFs
+- **Crypto**: Major cryptocurrencies (BTC-USD, ETH-USD)
+- **International**: Foreign stocks and indice
 ```
 
 ## What's Included
 
 ### Asset Types
-- **STOCK (TECH)**: High volatility growth stock
-- **STOCK (DIVIDEND)**: Lower volatility dividend stock  
-- **BOND**: Conservative fixed-income
-- **CRYPTO**: High volatility cryptocurrency
-- **COMMODITY**: Commodity price movements
-
-### Pre-Built Strategies
-1. **buy_and_hold(symbol)** - Single asset buy & hold
-2. **balanced_portfolio(allocations)** - Static multi-asset allocation
-3. **momentum_strategy(short_window, long_window)** - Moving average crossover
-4. **rebalance_strategy(allocations, frequency)** - Periodic rebalancing
-5. **stock_bond_allocation(stock_pct, rebalance)** - Traditional 60/40 style
-6. Plus custom strategy support!
-
-### Performance Metrics
-- **Total Return**: Overall profit percentage
-- **Annual Return**: Annualized compound return
+- **STOCK (TECH)**: High volatilcompound return
 - **Max Drawdown**: Largest peak-to-trough decline
-- **Sharpe Ratio**: Risk-adjusted return metric
+- **Sharpe Ratio**: Risk-adjusted return (higher is better)
+- **Volatility**: Standard deviation of returns
 
-## Documentation
+## Technology Stack
 
-- **README.md** - Overview (this file)
-- **GUIDE.md** - Comprehensive user guide with examples
-- **QUICK_REFERENCE.py** - Copy-paste code snippets
-- **Code Comments** - Detailed inline documentation
+- **Backend**: Flask 3.0.3, Python 3.12
+- **Data Source**: Yahoo Finance (yfinance)
+- **Financial Libraries**: pandas, numpy, scipy
+- **Frontend**: Vanilla JavaScript, Chart.js 3.9.1
+- **Styling**: Custom CSS with mobile-first responsive design
+- **Deployment**: Render (with gunicorn WSGI server)
 
-## Limitations
+## Development
 
-- No transaction costs/slippage
+### Requirements
+
+- Python 3.12+
+- pip packages listed in [requirements.txt](requirements.txt)
+
+### Local Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/scmlewis/portfoiliolab.git
+cd portfoiliolab
+
+# IKnown Limitations
+
+- No transaction costs or slippage modeling
 - No dividend reinvestment
-- Simple daily execution
-- No margin/leverage
-- No options/derivatives
+- Simple daily execution (no intraday trading)
+- Requires internet connection for market data
+- Rate limited by Yahoo Finance API
 
-## Extension Ideas
+## Future Enhancements
 
-- Add real market data (Yahoo Finance, Alpha Vantage)
-- Transaction costs and commissions
-- More complex indicators (RSI, MACD, Bollinger Bands)
-- Parameter optimization (grid search)
-- Walk-forward backtesting
-- Monte Carlo simulations
-- Web UI dashboard
+- [ ] Transaction cost modeling
+- [ ] More advanced strategies (RSI, MACD, Bollinger Bands)
+- [ ] Parameter optimization tools
+- [ ] Monte Carlo simulations
+- [ ] Export results to CSV/PDF
+- [ ] Portfolio optimization (Modern Portfolio Theory)
+- [ ] Risk analytics dashboard
+- [ ] Multi-currency support
+
+## License
+
+MIT License - See [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Archive
+
+Old MVP files, standalone scripts, and development documentation have been moved to the `archive/` folder for reference.
 - Export to CSV/Excel
