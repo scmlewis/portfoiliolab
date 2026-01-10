@@ -130,6 +130,37 @@ p {
     margin-bottom: var(--spacing-md);
 }
 
+/* === INLINE SVG ICONS === */
+.inline-icon {
+    display: inline-block;
+    width: 1.25em;
+    height: 1.25em;
+    vertical-align: middle;
+    margin-right: 0.375em;
+    margin-top: -0.125em;
+}
+
+h1 .inline-icon {
+    width: 1.5em;
+    height: 1.5em;
+}
+
+h2 .inline-icon {
+    width: 1.35em;
+    height: 1.35em;
+}
+
+legend .inline-icon {
+    width: 1.15em;
+    height: 1.15em;
+}
+
+.empty-state .inline-icon {
+    width: 1.5em;
+    height: 1.5em;
+    opacity: 0.7;
+}
+
 @media (min-width: 768px) {
     h1 { font-size: var(--font-size-4xl); }
     h2 { font-size: var(--font-size-3xl); }
@@ -238,7 +269,6 @@ header .subtitle {
 .dark-mode-btn:hover {
     background: #475569;
     border-color: #93c5fd;
-    transform: scale(1.05);
 }
 
 /* === MAIN GRID === */
@@ -326,7 +356,7 @@ form fieldset {
     background: linear-gradient(135deg, #334155, #1e293b);
     margin: 0;
     user-select: none;
-    transition: all var(--transition-base);
+    transition: background var(--transition-fast), color var(--transition-fast);
     color: #e2e8f0;
     font-weight: 600;
     font-size: var(--font-size-base);
