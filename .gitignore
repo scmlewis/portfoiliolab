@@ -84,3 +84,10 @@ npm-debug.log*
 
 # Local data (optional - if you want to exclude downloaded market data)
 # data/downloads/
+
+# Archive folder - old MVP files and documentation
+archive/
+
+# Old folders
+examples/
+data/
