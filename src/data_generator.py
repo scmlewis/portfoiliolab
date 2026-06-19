@@ -1,6 +1,7 @@
 """Sample data generator for backtesting."""
 import random
 from datetime import datetime, timedelta
+from typing import Dict, List
 from src.assets import Asset, AssetType, PriceData
 
 
@@ -98,7 +99,3 @@ def create_sample_assets(start_date: str = "2023-01-01", num_days: int = 252) ->
     )
     
     return assets
-
-
-# Add missing import at the top
-from typing import Dict, List

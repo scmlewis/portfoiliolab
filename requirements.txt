@@ -3,11 +3,12 @@ yfinance>=0.2.18          # Yahoo Finance data
 flask>=2.3.0              # Web framework
 flask-cors>=4.0.0         # CORS support
 gunicorn>=21.2.0          # Production WSGI server for Render
+cachetools>=5.3.0         # In-memory TTL caching
 
-# Optional enhancements
-pandas>=1.3.0             # Data manipulation
+# Numerical computing
 numpy>=1.21.0             # Numerical computing
 scipy>=1.9.0              # Scientific computing (for portfolio optimization)
-matplotlib>=3.4.0         # Plotting
-jupyter>=1.0.0            # Interactive notebooks
+
+# Production
+whitenoise>=6.0.0         # Static file serving (optional, for better performance)
 

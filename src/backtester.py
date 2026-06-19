@@ -39,20 +39,42 @@ class BacktestResult:
 
 
 class Portfolio:
-    """Manages a portfolio of assets."""
+    """Manages a portfolio of assets.
+    
+    Edge cases handled:
+    - Zero initial capital: Portfolio starts with $0, cannot buy anything
+    - Negative capital: Raises ValueError
+    - Floating-point precision: Allows 0.01 tolerance for rounding errors
+    """
     
     def __init__(self, initial_capital: float):
+        if initial_capital < 0:
+            raise ValueError(f"Initial capital cannot be negative: {initial_capital}")
         self.cash = initial_capital
         self.initial_capital = initial_capital
         self.positions: Dict[str, Position] = {}
-        self.history: List[Dict] = []
     
     def buy(self, asset: Asset, quantity: float, price: float, date_index: int):
-        """Buy an asset."""
+        """Buy an asset.
+        
+        Args:
+            asset: Asset to buy
+            quantity: Number of units to buy (must be > 0)
+            price: Price per unit (must be > 0)
+            date_index: Date index for the trade
+            
+        Raises:
+            ValueError: If quantity or price is invalid, or insufficient cash
+        """
+        if quantity <= 0:
+            raise ValueError(f"Quantity must be positive: {quantity}")
+        if price <= 0:
+            raise ValueError(f"Price must be positive: {price}")
+            
         cost = quantity * price
         # Allow small floating-point rounding errors (within 0.01)
         if cost > self.cash + 0.01:
-            raise ValueError(f"Insufficient cash: need {cost}, have {self.cash}")
+            raise ValueError(f"Insufficient cash: need {cost:.2f}, have {self.cash:.2f}")
         
         self.cash -= cost
         
@@ -70,7 +92,21 @@ class Portfolio:
             )
     
     def sell(self, symbol: str, quantity: float, price: float):
-        """Sell an asset."""
+        """Sell an asset.
+        
+        Args:
+            symbol: Symbol of asset to sell
+            quantity: Number of units to sell (must be > 0)
+            price: Price per unit (must be > 0)
+            
+        Raises:
+            ValueError: If symbol not found, quantity invalid, or price invalid
+        """
+        if quantity <= 0:
+            raise ValueError(f"Quantity must be positive: {quantity}")
+        if price <= 0:
+            raise ValueError(f"Price must be positive: {price}")
+            
         if symbol not in self.positions:
             raise ValueError(f"No position in {symbol}")
         
@@ -113,9 +149,18 @@ class Portfolio:
 
 
 class Backtester:
-    """Main backtester engine."""
+    """Main backtester engine.
+    
+    Edge cases handled:
+    - Empty assets dictionary: Raises ValueError
+    - Single asset: Works correctly
+    - Insufficient data: Returns zero metrics
+    - Zero initial capital: Portfolio starts with $0
+    """
     
     def __init__(self, assets: Dict[str, Asset]):
+        if not assets:
+            raise ValueError("Assets dictionary cannot be empty")
         self.assets = assets
         # Get dates from first asset
         first_asset = next(iter(assets.values()))
@@ -131,9 +176,23 @@ class Backtester:
         
         Args:
             strategy_func: Function that takes (backtester, portfolio, date_index) and executes trades
-            initial_capital: Starting capital
+            initial_capital: Starting capital (must be >= 0)
             strategy_name: Name for this backtest
+            
+        Returns:
+            BacktestResult with all metrics and snapshots
+            
+        Edge cases:
+            - Zero capital: Portfolio starts with $0, cannot buy anything
+            - Negative capital: Raises ValueError
+            - Invalid strategy function: Raises TypeError
+            - Empty assets: Already handled in __init__
         """
+        if not callable(strategy_func):
+            raise TypeError(f"strategy_func must be callable, got {type(strategy_func)}")
+        if initial_capital < 0:
+            raise ValueError(f"Initial capital cannot be negative: {initial_capital}")
+            
         portfolio = Portfolio(initial_capital)
         snapshots = []
         
@@ -147,12 +206,12 @@ class Backtester:
         
         # Calculate metrics
         final_value = portfolio.get_value(self.num_periods - 1)
-        total_return = (final_value - initial_capital) / initial_capital
+        total_return = (final_value - initial_capital) / initial_capital if initial_capital > 0 else 0
         
         # Annual return (assuming daily data)
         days = self.num_periods - 1
         years = days / 252.0
-        annual_return = (total_return + 1) ** (1 / years) - 1 if years > 0 else 0
+        annual_return = (total_return + 1) ** (1 / years) - 1 if years > 0 and total_return > -1 else 0
         
         # Max drawdown
         max_drawdown = self._calculate_max_drawdown(snapshots)

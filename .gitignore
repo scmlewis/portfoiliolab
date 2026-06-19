@@ -91,3 +91,16 @@ archive/
 # Old folders
 examples/
 data/
+
+# Render
+.render/
+build/
+
+# Python
+*.pyc
+__pycache__/
+
+# Environment
+.env
+.env.local
+.env.*.local

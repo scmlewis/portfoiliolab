@@ -1,256 +1,251 @@
 /**
- * Investment Backtester - Frontend JavaScript
+ * PortfolioLab - Frontend JavaScript
  */
 
-// Global state
 let currentResult = null;
 let equityChart = null;
 let comparisonChart = null;
 let frontierChart = null;
 let strategies = [];
 let currentSymbols = [];
+let activeAbortControllers = [];
+let dataLoaded = false;
 
-// DOM Elements
-const configForm = document.getElementById('configForm');
-const loadRealDataBtn = document.getElementById('loadRealDataBtn');
+// DOM
 const backtestBtn = document.getElementById('backtestBtn');
 const quickCompareBtn = document.getElementById('quickCompareBtn');
 const strategySelect = document.getElementById('strategySelect');
 const strategyParams = document.getElementById('strategyParams');
-const status = document.getElementById('status');
+const statusEl = document.getElementById('status');
 const singleResults = document.getElementById('singleResults');
 const comparisonResults = document.getElementById('comparisonResults');
 const emptyState = document.getElementById('emptyState');
 const optimizeBtn = document.getElementById('optimizeBtn');
 const frontierBtn = document.getElementById('frontierBtn');
 
-// Initialize
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-    console.log('Initializing app...');
-    
-    // Load strategies
     await loadStrategies();
-    
-    // Setup event listeners
-    loadRealDataBtn.addEventListener('click', loadRealDataWithDates);
+    setupEventListeners();
+    setupDateRange();
+    setupPresets();
+    setupAdvancedToggle();
+    setupTabs();
+    setupSymbolInput();
+    setupHelp();
+    restoreDarkMode();
+    restoreResults();
+    autoLoadData();
+}
+
+// ============================================================================
+// EVENT LISTENERS
+// ============================================================================
+
+function setupEventListeners() {
     backtestBtn.addEventListener('click', runBacktest);
     quickCompareBtn.addEventListener('click', runQuickCompare);
     strategySelect.addEventListener('change', onStrategyChange);
     optimizeBtn.addEventListener('click', runOptimization);
     frontierBtn.addEventListener('click', runFrontier);
-    
-    // Setup dark mode
-    const darkModeBtn = document.getElementById('darkModeToggle');
-    if (darkModeBtn) {
-        darkModeBtn.addEventListener('click', toggleDarkMode);
-        initializeDarkMode();
-    }
-    
-    // Setup date range
-    setupDateRange();
-    
-    // Setup preset templates
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            applyPresetTemplate(e.target.dataset.preset);
-        });
-    });
-    
-    // Setup save/load config
-    document.getElementById('saveConfigBtn').addEventListener('click', saveCurrentConfig);
-    document.getElementById('loadConfigBtn').addEventListener('click', loadSelectedConfig);
-    document.getElementById('deleteConfigBtn').addEventListener('click', deleteSelectedConfig);
+
+    document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
+
+    document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
+    document.getElementById('loadConfigBtn').addEventListener('click', loadConfig);
+    document.getElementById('deleteConfigBtn').addEventListener('click', deleteConfig);
     loadSavedConfigs();
-    
-    // Setup tab switching
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            switchTab(e.target.dataset.tab);
-        });
-    });
-    
-    // Setup symbol autocomplete
-    const symbolsInput = document.getElementById('symbols');
-    if (symbolsInput) {
-        symbolsInput.addEventListener('input', handleSymbolsInput);
-        symbolsInput.addEventListener('blur', () => {
-            setTimeout(() => {
-                document.getElementById('symbolsAutocomplete').classList.add('hidden');
-            }, 200);
-        });
-        document.addEventListener('click', (e) => {
-            if (e.target.id !== 'symbols') {
-                document.getElementById('symbolsAutocomplete').classList.add('hidden');
-            }
-        });
-    }
-    
-    // Setup collapsible sections
-    setupCollapsible();
-    restoreCollapsibleState();
-    
-    showMessage('Ready! Load data to begin.', 'success');
 }
 
 // ============================================================================
-// UI FUNCTIONS
+// UTILITIES
+// ============================================================================
+
+function debounce(fn, ms) {
+    let t;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+function abortPrevious() {
+    activeAbortControllers.forEach(c => c.abort());
+    activeAbortControllers = [];
+}
+
+function fetchAbort(url, opts = {}) {
+    const c = new AbortController();
+    activeAbortControllers.push(c);
+    return fetch(url, { ...opts, signal: c.signal });
+}
+
+function fmt(n) { return Math.round(n).toLocaleString(); }
+
+// ============================================================================
+// AUTO-LOAD DATA
+// ============================================================================
+
+function autoLoadData() {
+    setDataStatus('loading', 'Loading data...');
+    loadRealData();
+
+    const debounced = debounce(() => { dataLoaded = false; setDataStatus('loading', 'Loading data...'); loadRealData(); }, 800);
+    document.getElementById('startDate').addEventListener('change', debounced);
+    document.getElementById('endDate').addEventListener('change', debounced);
+}
+
+function setDataStatus(state, msg) {
+    const el = document.getElementById('dataStatus');
+    const txt = document.getElementById('dataStatusText');
+    const icon = el.querySelector('.data-status__icon');
+    el.className = 'data-status data-status--' + state;
+    txt.textContent = msg;
+    if (icon) icon.textContent = state === 'loaded' ? 'check_circle' : state === 'error' ? 'error' : 'cloud_queue';
+}
+
+async function loadRealData() {
+    try {
+        const { symbols, numDays } = getParams();
+        if (!symbols.length) { setDataStatus('error', 'Enter at least one symbol'); return; }
+
+        const res = await fetchAbort('/api/load-real-data', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbols, num_days: numDays })
+        });
+        const d = await res.json();
+
+        if (d.success) {
+            currentSymbols = d.assets;
+            dataLoaded = true;
+            let msg = 'Loaded ' + d.assets.length + ' asset' + (d.assets.length !== 1 ? 's' : '');
+            if (d.missing_symbols?.length) msg += ' (' + d.missing_symbols.join(', ') + ' not found)';
+            setDataStatus('loaded', msg);
+        } else {
+            setDataStatus('error', d.error || 'Failed to load');
+        }
+    } catch (e) {
+        if (e.name !== 'AbortError') setDataStatus('error', e.message);
+    }
+}
+
+// ============================================================================
+// HELP TAB
+// ============================================================================
+
+function setupHelp() {
+    document.getElementById('helpBtn').addEventListener('click', () => switchTab('help'));
+}
+
+// ============================================================================
+// ADVANCED TOGGLE
+// ============================================================================
+
+function setupAdvancedToggle() {
+    const section = document.getElementById('advancedSection');
+    const toggle = document.getElementById('advancedToggle');
+    const body = document.getElementById('advancedBody');
+
+    toggle.addEventListener('click', () => {
+        const collapsed = section.classList.contains('section--collapsed');
+        if (collapsed) {
+            section.classList.remove('section--collapsed');
+            section.classList.add('section--expanded');
+            body.classList.remove('hidden');
+        } else {
+            section.classList.add('section--collapsed');
+            section.classList.remove('section--expanded');
+            body.classList.add('hidden');
+        }
+    });
+}
+
+// ============================================================================
+// TABS
+// ============================================================================
+
+function setupTabs() {
+    document.querySelectorAll('.tab').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+}
+
+function switchTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => { p.classList.add('hidden'); p.classList.remove('active'); });
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    const panel = document.getElementById(name + '-tab');
+    if (panel) { panel.classList.remove('hidden'); panel.classList.add('active'); }
+    const btn = document.querySelector('[data-tab="' + name + '"]');
+    if (btn) btn.classList.add('active');
+}
+
+// ============================================================================
+// STRATEGY
 // ============================================================================
 
 function onStrategyChange() {
-    const strategyId = strategySelect.value;
-    const strategy = strategies.find(s => s.id === strategyId);
-    
-    if (!strategy) {
-        strategyParams.innerHTML = '';
-        return;
-    }
-    
-    // Check if this is a balanced or rebalancing strategy
-    const isBalnacedOrRebalance = strategyId === 'balanced' || strategyId === 'rebalance';
-    
-    // Build parameter inputs
+    const id = strategySelect.value;
+    const s = strategies.find(x => x.id === id);
+    if (!s) { strategyParams.innerHTML = ''; return; }
+
+    const isAlloc = id === 'balanced' || id === 'rebalance';
     let html = '';
-    for (const param of strategy.params) {
-        // For allocation_json, show allocation builder instead
-        if (param.name === 'allocation_json' && isBalnacedOrRebalance) {
-            html += renderAllocationBuilder(param);
+    for (const p of s.params) {
+        if (p.name === 'allocation_json' && isAlloc) {
+            html += renderAllocationBuilder(p);
         } else {
-            // Use first loaded symbol as default if available, otherwise use param default
-            let paramValue = param.value;
-            if (param.name === 'symbol' && currentSymbols.length > 0) {
-                paramValue = currentSymbols[0];
+            let v = p.value;
+            if (p.name === 'symbol') {
+                if (selectedSymbols.length) v = selectedSymbols[0].symbol;
+                else if (currentSymbols.length) v = currentSymbols[0];
             }
-            
-            html += `
-                <label>
-                    <span>${param.label}</span>
-                    <input type="${param.type}" 
-                           name="${param.name}" 
-                           value="${paramValue}"
-                           class="param-input">
-                </label>
-            `;
+            html += '<div class="field-group"><label class="field-label" for="param-' + p.name + '">' + p.label + '</label>' +
+                    '<input type="' + p.type + '" name="' + p.name + '" value="' + v + '" class="text-input param-input" id="param-' + p.name + '"></div>';
         }
     }
-    
     strategyParams.innerHTML = html;
-    
-    // Setup allocation builder if needed
-    if (isBalnacedOrRebalance) {
-        setupAllocationBuilder();
-    }
+    if (isAlloc) setupAllocation(selectedSymbols.length ? selectedSymbols : currentSymbols);
 }
 
-function renderAllocationBuilder(param) {
-    return `
-        <div class="allocation-builder">
-            <label><span>Asset Allocation (%)</span></label>
-            <div id="allocationSliders"></div>
-            <div class="allocation-summary">
-                <div class="summary-row">
-                    <span>Total:</span>
-                    <strong id="allocationTotal">0%</strong>
-                </div>
-            </div>
-            <input type="hidden" name="allocation_json" id="allocationJSON" value='${param.value}'>
-        </div>
-    `;
+function renderAllocationBuilder(p) {
+    return '<div class="alloc-builder">' +
+        '<label class="field-label">Asset Allocation (%)</label>' +
+        '<div id="allocSliders"></div>' +
+        '<div class="alloc-summary"><span>Total:</span> <strong id="allocTotal">0%</strong></div>' +
+        '<input type="hidden" name="allocation_json" id="allocJSON" value=\'' + p.value + '\'>';
 }
 
-function setupAllocationBuilder() {
-    if (!currentSymbols || !Array.isArray(currentSymbols) || !currentSymbols.length) {
-        document.getElementById('allocationSliders').innerHTML = 
-            '<p style="color: #dc2626; font-size: 0.9em;">⚠ Load data first to create allocations</p>';
+function setupAllocation(symbolsOverride) {
+    const raw = symbolsOverride || currentSymbols;
+    if (!raw?.length) {
+        const el = document.getElementById('allocSliders');
+        if (el) el.innerHTML = '<p style="color:var(--error);font-size:0.8125rem">Load data first</p>';
         return;
     }
-    
-    const slidersContainer = document.getElementById('allocationSliders');
-    const numSymbols = currentSymbols.length;
-    const basePercentage = Math.floor(100 / numSymbols);
-    const remainder = 100 % numSymbols;
-    
+    const syms = raw.map(s => typeof s === 'string' ? s : s.symbol);
+    const n = syms.length;
+    const base = Math.floor(100 / n), rem = 100 % n;
     let html = '';
-    let sliderIndex = 0;
-    
-    for (const symbol of currentSymbols) {
-        // Distribute remainder across first few sliders to ensure total = 100%
-        const percentage = basePercentage + (sliderIndex < remainder ? 1 : 0);
-        html += `
-            <div class="allocation-slider-item">
-                <label>${symbol}</label>
-                <div class="slider-container">
-                    <input type="range" 
-                           name="alloc_${symbol}" 
-                           class="allocation-slider" 
-                           min="0" max="100" 
-                           value="${percentage}"
-                           data-symbol="${symbol}">
-                    <span class="allocation-value">${percentage}%</span>
-                </div>
-            </div>
-        `;
-        sliderIndex++;
-    }
-    
-    slidersContainer.innerHTML = html;
-    
-    // Setup event listeners for sliders
-    document.querySelectorAll('.allocation-slider').forEach(slider => {
-        slider.addEventListener('input', updateAllocationDisplay);
+    syms.forEach((ticker, i) => {
+        const pct = base + (i < rem ? 1 : 0);
+        html += '<div class="alloc-row"><span class="alloc-sym">' + ticker + '</span>' +
+                '<input type="range" class="alloc-slider" min="0" max="100" value="' + pct + '" data-symbol="' + ticker + '">' +
+                '<span class="alloc-val">' + pct + '%</span></div>';
     });
-    
-    updateAllocationDisplay();
+    document.getElementById('allocSliders').innerHTML = html;
+    document.querySelectorAll('.alloc-slider').forEach(sl => sl.addEventListener('input', updateAlloc));
+    updateAlloc();
 }
 
-function updateAllocationDisplay() {
-    const sliders = document.querySelectorAll('.allocation-slider');
-    let total = 0;
-    let allocation = {};
-    
-    sliders.forEach(slider => {
-        const value = parseInt(slider.value);
-        const symbol = slider.dataset.symbol;
-        allocation[symbol] = value / 100;
-        total += value;
-        
-        // Update display
-        slider.parentElement.querySelector('.allocation-value').textContent = value + '%';
+function updateAlloc() {
+    let total = 0, obj = {};
+    document.querySelectorAll('.alloc-slider').forEach(sl => {
+        const v = parseInt(sl.value), s = sl.dataset.symbol;
+        obj[s] = v / 100; total += v;
+        sl.closest('.alloc-row').querySelector('.alloc-val').textContent = v + '%';
     });
-    
-    // Update total
-    const totalEl = document.getElementById('allocationTotal');
-    if (totalEl) {
-        totalEl.textContent = total + '%';
-        totalEl.style.color = total === 100 ? '#16a34a' : '#dc2626';
-    }
-    
-    // Update hidden JSON field
-    const jsonField = document.getElementById('allocationJSON');
-    if (jsonField) {
-        jsonField.value = JSON.stringify(allocation);
-    }
-}
-
-function showMessage(message, type = 'info') {
-    status.textContent = message;
-    status.className = `status ${type}`;
-    status.classList.remove('hidden');
-    
-    if (type !== 'loading') {
-        setTimeout(() => status.classList.add('hidden'), 5000);
-    }
-}
-
-function showLoading(message = 'Loading...') {
-    showMessage(message, 'loading');
-}
-
-function hideResults() {
-    singleResults.classList.add('hidden');
-    comparisonResults.classList.add('hidden');
-    emptyState.classList.remove('hidden');
+    const t = document.getElementById('allocTotal');
+    if (t) { t.textContent = total + '%'; t.className = total === 100 ? 'valid' : 'invalid'; }
+    const j = document.getElementById('allocJSON');
+    if (j) j.value = JSON.stringify(obj);
 }
 
 // ============================================================================
@@ -259,928 +254,563 @@ function hideResults() {
 
 async function loadStrategies() {
     try {
-        const response = await fetch('/api/strategies');
-        const data = await response.json();
-        strategies = data;
-        
-        // Populate strategy select
+        const r = await fetch('/api/strategies');
+        strategies = await r.json();
         strategySelect.innerHTML = '<option value="">Choose a strategy...</option>';
-        for (const strategy of strategies) {
-            strategySelect.innerHTML += `
-                <option value="${strategy.id}">${strategy.name}</option>
-            `;
-        }
-    } catch (error) {
-        showMessage('Error loading strategies: ' + error, 'error');
-    }
+        strategies.forEach(s => { strategySelect.innerHTML += '<option value="' + s.id + '">' + s.name + '</option>'; });
+    } catch (e) { showMsg('Error loading strategies: ' + e, 'error'); }
 }
 
-async function loadRealData() {
-    try {
-        const symbolsText = document.getElementById('symbols').value;
-        const symbols = symbolsText.split(',').map(s => s.trim()).filter(s => s);
-        
-        // Get numDays - try from element first, fallback to calculated from dates
-        let numDays = 252; // default
-        const numDaysEl = document.getElementById('numDays');
-        if (numDaysEl && numDaysEl.value) {
-            numDays = parseInt(numDaysEl.value);
-        } else {
-            // Calculate from date range if available
-            const startDateEl = document.getElementById('startDate');
-            const endDateEl = document.getElementById('endDate');
-            if (startDateEl && endDateEl && startDateEl.value && endDateEl.value) {
-                const start = new Date(startDateEl.value);
-                const end = new Date(endDateEl.value);
-                const daysInMs = end - start;
-                numDays = Math.max(10, Math.ceil(daysInMs / (1000 * 60 * 60 * 24)));
-            }
-        }
-        
-        if (!symbols.length) {
-            showMessage('Please enter at least one symbol', 'error');
-            return;
-        }
-        
-        // Validate symbols first
-        showLoading(`Validating symbols...`);
-        const isValid = await validateSymbols(symbols);
-        
-        if (!isValid) {
-            showMessage('Some symbols could not be validated. Check the messages above.', 'warning');
-            // Continue anyway if at least some symbols are valid
-        }
-        
-        showLoading(`Fetching data for ${symbols.length} symbols...`);
-        
-        const response = await fetch('/api/load-real-data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ symbols, num_days: numDays })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            currentSymbols = data.assets;  // Store loaded symbols
-            showMessage('✓ ' + data.message, 'success');
-        } else {
-            showMessage('Error: ' + data.error, 'error');
-        }
-    } catch (error) {
-        showMessage('Error loading real data: ' + error, 'error');
-    }
+function getParams() {
+    const symbols = getSelectedSymbols();
+    let numDays = 252;
+    const s = document.getElementById('startDate'), e = document.getElementById('endDate');
+    if (s?.value && e?.value) numDays = Math.max(10, Math.ceil((new Date(e.value) - new Date(s.value)) / 864e5));
+    const cap = parseFloat(document.getElementById('initialCapital').value) || 100000;
+    return { symbols, numDays, initialCapital: cap };
+}
+
+function showMsg(msg, type) {
+    statusEl.textContent = msg;
+    statusEl.className = 'status status--' + type;
+    statusEl.classList.remove('hidden');
+    if (type !== 'loading') setTimeout(() => statusEl.classList.add('hidden'), 5000);
+}
+
+function hideResults() {
+    singleResults.classList.add('hidden');
+    comparisonResults.classList.add('hidden');
+    emptyState.classList.remove('hidden');
 }
 
 async function runBacktest() {
     try {
-        const strategyId = strategySelect.value;
-        
-        if (!strategyId) {
-            showMessage('Please select a strategy', 'error');
-            return;
-        }
-        
-        // Collect parameters
-        const paramInputs = document.querySelectorAll('.param-input');
+        abortPrevious();
+        if (!strategySelect.value) { showMsg('Please select a strategy', 'error'); return; }
+        if (!dataLoaded) { showMsg('Please wait for data to load', 'error'); return; }
+
         const params = {};
-        for (const input of paramInputs) {
-            params[input.name] = input.value;
-        }
-        
-        // Also collect hidden allocation JSON field if present
-        const allocationJSON = document.getElementById('allocationJSON');
-        if (allocationJSON) {
-            params['allocation_json'] = allocationJSON.value;
-        }
-        
-        // Always use real data from Yahoo Finance
-        const symbols = document.getElementById('symbols').value.split(',').map(s => s.trim()).filter(s => s);
-        const initialCapital = parseFloat(document.getElementById('initialCapital').value);
-        
-        // Calculate numDays - try from element first, fallback to calculated from dates
-        let numDays = 252; // default
-        const numDaysEl = document.getElementById('numDays');
-        if (numDaysEl && numDaysEl.value) {
-            numDays = parseInt(numDaysEl.value);
-        } else {
-            // Calculate from date range if available
-            const startDateEl = document.getElementById('startDate');
-            const endDateEl = document.getElementById('endDate');
-            if (startDateEl && endDateEl && startDateEl.value && endDateEl.value) {
-                const start = new Date(startDateEl.value);
-                const end = new Date(endDateEl.value);
-                const daysInMs = end - start;
-                numDays = Math.max(10, Math.ceil(daysInMs / (1000 * 60 * 60 * 24)));
-            }
-        }
-        
-        showLoading('Running backtest...');
-        
-        const response = await fetch('/api/backtest', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                use_real_data: true,
-                symbols,
-                strategy_id: strategyId,
-                strategy_params: params,
-                initial_capital: initialCapital,
-                num_days: numDays
-            })
+        document.querySelectorAll('.param-input').forEach(i => { params[i.name] = i.value; });
+        const aj = document.getElementById('allocJSON');
+        if (aj) params.allocation_json = aj.value;
+
+        const { symbols, numDays, initialCapital } = getParams();
+        showMsg('Running backtest...', 'loading');
+        setBtnLoading(backtestBtn, true);
+
+        const r = await fetchAbort('/api/backtest', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ use_real_data: true, symbols, strategy_id: strategySelect.value, strategy_params: params, initial_capital: initialCapital, num_days: numDays })
         });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            currentResult = data.result;
-            displaySingleResult(currentResult);
-            showMessage('✓ Backtest completed', 'success');
-        } else {
-            showMessage('Error: ' + data.error, 'error');
-        }
-    } catch (error) {
-        showMessage('Error: ' + error, 'error');
-    }
+        const d = await r.json();
+        if (d.success) { currentResult = d.result; displaySingle(d.result); saveResults(); showMsg('Backtest completed', 'success'); }
+        else showMsg('Error: ' + d.error, 'error');
+    } catch (e) { if (e.name !== 'AbortError') showMsg('Error: ' + e.message, 'error'); }
+    finally { setBtnLoading(backtestBtn, false); }
 }
 
 async function runQuickCompare() {
     try {
-        // Always use real data from Yahoo Finance
-        const symbols = document.getElementById('symbols').value.split(',').map(s => s.trim()).filter(s => s);
-        const initialCapital = parseFloat(document.getElementById('initialCapital').value);
-        
-        if (symbols.length === 0) {
-            showMessage('Please load some symbols first', 'warning');
-            return;
-        }
-        
-        // Calculate numDays - try from element first, fallback to calculated from dates
-        let numDays = 252; // default
-        const numDaysEl = document.getElementById('numDays');
-        if (numDaysEl && numDaysEl.value) {
-            numDays = parseInt(numDaysEl.value);
-        } else {
-            // Calculate from date range if available
-            const startDateEl = document.getElementById('startDate');
-            const endDateEl = document.getElementById('endDate');
-            if (startDateEl && endDateEl && startDateEl.value && endDateEl.value) {
-                const start = new Date(startDateEl.value);
-                const end = new Date(endDateEl.value);
-                const daysInMs = end - start;
-                numDays = Math.max(10, Math.ceil(daysInMs / (1000 * 60 * 60 * 24)));
-            }
-        }
-        
-        // Build equal-weight allocation for loaded symbols
-        const equalWeight = (1 / symbols.length).toFixed(2);
-        const allocationObj = {};
-        symbols.forEach(s => {
-            allocationObj[s] = parseFloat(equalWeight);
-        });
-        const allocationJson = JSON.stringify(allocationObj);
-        
-        // Define 4 default strategies using the user's loaded symbols
-        const defaultStrategies = [
-            {
-                strategy_id: 'buy_hold_single',
-                name: `Buy & Hold (${symbols[0]})`,
-                params: { symbol: symbols[0] }
-            },
-            {
-                strategy_id: 'balanced',
-                name: `Balanced (${symbols.slice(0, 2).join('/')}`,
-                params: { allocation_json: allocationJson }
-            },
-            {
-                strategy_id: 'momentum',
-                name: 'Momentum Strategy',
-                params: { short_window: '20', long_window: '50' }
-            },
-            {
-                strategy_id: 'rebalance',
-                name: `Quarterly Rebalancing (${symbols.slice(0, 2).join('/')})`,
-                params: { 
-                    allocation_json: allocationJson,
-                    frequency: '63'
-                }
-            }
+        abortPrevious();
+        const { symbols, numDays, initialCapital } = getParams();
+        if (!symbols.length) { showMsg('Load symbols first', 'warning'); return; }
+        if (!dataLoaded) { showMsg('Wait for data to load', 'error'); return; }
+
+        const ew = (1 / symbols.length).toFixed(2);
+        const ao = {}; symbols.forEach(s => { ao[s] = parseFloat(ew); });
+        const aj = JSON.stringify(ao);
+
+        const strats = [
+            { strategy_id: 'buy_hold_single', name: 'Buy & Hold (' + symbols[0] + ')', params: { symbol: symbols[0] } },
+            { strategy_id: 'balanced', name: 'Balanced (' + symbols.slice(0, 2).join('/') + ')', params: { allocation_json: aj } },
+            { strategy_id: 'momentum', name: 'Momentum', params: { short_window: '20', long_window: '50' } },
+            { strategy_id: 'rebalance', name: 'Rebalancing (' + symbols.slice(0, 2).join('/') + ')', params: { allocation_json: aj, frequency: '63' } }
         ];
-        
-        showLoading('Comparing 4 strategies...');
-        
-        const response = await fetch('/api/compare', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                use_real_data: true,
-                symbols,
-                strategies: defaultStrategies,
-                initial_capital: initialCapital,
-                num_days: numDays
-            })
+
+        showMsg('Comparing 4 strategies...', 'loading');
+        setBtnLoading(quickCompareBtn, true);
+
+        const r = await fetchAbort('/api/compare', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ use_real_data: true, symbols, strategies: strats, initial_capital: initialCapital, num_days: numDays })
         });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            displayComparison(data);
-            showMessage('✓ Comparison completed', 'success');
-        } else {
-            showMessage('Error: ' + data.error, 'error');
-        }
-    } catch (error) {
-        showMessage('Error: ' + error, 'error');
-    }
+        const d = await r.json();
+        if (d.success) { displayComparison(d); saveResults(); showMsg('Comparison completed', 'success'); }
+        else showMsg('Error: ' + d.error, 'error');
+    } catch (e) { if (e.name !== 'AbortError') showMsg('Error: ' + e.message, 'error'); }
+    finally { setBtnLoading(quickCompareBtn, false); }
+}
+
+function setBtnLoading(btn, on) {
+    btn.classList.toggle('btn--loading', on);
+    btn.disabled = on;
 }
 
 // ============================================================================
-// DISPLAY FUNCTIONS
+// DISPLAY
 // ============================================================================
 
-function displaySingleResult(result) {
+function displaySingle(r) {
     hideResults();
-    
-    // Clear any previous error messages
-    status.classList.add('hidden');
-    status.textContent = '';
-    
-    // Update metrics
-    document.getElementById('strategyName').textContent = result.strategy_name;
-    document.getElementById('totalReturn').textContent = result.total_return + '%';
-    document.getElementById('annualReturn').textContent = result.annual_return + '%';
-    document.getElementById('maxDD').textContent = result.max_drawdown + '%';
-    document.getElementById('sharpeRatio').textContent = result.sharpe_ratio.toFixed(2);
-    
-    document.getElementById('initialVal').textContent = '$' + formatNumber(result.initial_capital);
-    document.getElementById('finalVal').textContent = '$' + formatNumber(result.final_value);
-    document.getElementById('period').textContent = result.start_date + ' to ' + result.end_date;
-    
-    // Draw chart
-    drawEquityChart(result.snapshots);
-    
+    statusEl.classList.add('hidden');
+    document.getElementById('strategyName').textContent = r.strategy_name;
+
+    const tre = document.getElementById('totalReturn');
+    tre.textContent = r.total_return + '%';
+    tre.className = 'metric-card__value' + (r.total_return < 0 ? ' negative' : '');
+
+    document.getElementById('annualReturn').textContent = r.annual_return + '%';
+    document.getElementById('maxDD').textContent = r.max_drawdown + '%';
+    document.getElementById('sharpeRatio').textContent = r.sharpe_ratio.toFixed(2);
+    document.getElementById('initialVal').textContent = '$' + fmt(r.initial_capital);
+    document.getElementById('finalVal').textContent = '$' + fmt(r.final_value);
+    document.getElementById('period').textContent = r.start_date + ' to ' + r.end_date;
+
+    drawEquity(r.snapshots);
     singleResults.classList.remove('hidden');
 }
 
-function displayComparison(data) {
+function displayComparison(d) {
     hideResults();
-    
-    console.log('Comparison data received:', data);
-    console.log('Results:', data.results);
-    
-    if (data.results && data.results.length > 0) {
-        console.log('First result:', data.results[0]);
-        console.log('First result snapshots:', data.results[0].snapshots);
-    }
-    
-    // Draw comparison chart
-    drawComparisonChart(data.results);
-    
-    // Update best metrics
-    document.getElementById('bestReturn').textContent = data.best_return;
-    document.getElementById('bestSharpe').textContent = data.best_sharpe;
-    document.getElementById('bestDD').textContent = data.best_dd;
-    
-    // Populate table
-    const tbody = document.getElementById('comparisonBody');
-    tbody.innerHTML = '';
-    
-    for (const result of data.results) {
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td>${result.name}</td>
-            <td>$${formatNumber(result.initial)}</td>
-            <td>$${formatNumber(result.final)}</td>
-            <td>${result.return}%</td>
-            <td>${result.annual}%</td>
-            <td>${result.max_dd}%</td>
-            <td>${result.sharpe.toFixed(2)}</td>
-        `;
-    }
-    
+    drawComparison(d.results);
+    document.getElementById('bestReturn').textContent = d.best_return;
+    document.getElementById('bestSharpe').textContent = d.best_sharpe;
+    document.getElementById('bestDD').textContent = d.best_dd;
+
+    const tb = document.getElementById('comparisonBody');
+    tb.innerHTML = '';
+    d.results.forEach(r => {
+        const row = tb.insertRow();
+        row.innerHTML = '<td>' + r.name + '</td><td>$' + fmt(r.initial) + '</td><td>$' + fmt(r.final) + '</td>' +
+            '<td class="' + (r.return >= 0 ? 'positive' : 'negative') + '">' + r.return + '%</td>' +
+            '<td>' + r.annual + '%</td><td>' + r.max_dd + '%</td><td>' + r.sharpe.toFixed(2) + '</td>';
+    });
     comparisonResults.classList.remove('hidden');
 }
 
-function drawEquityChart(snapshots) {
+// ============================================================================
+// CHARTS
+// ============================================================================
+
+function chartColors() {
+    const dark = document.documentElement.classList.contains('dark');
+    return {
+        grid: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+        text: dark ? '#94a3b8' : '#64748b',
+        primary: dark ? '#d0bcff' : '#6750a4',
+        primaryA: dark ? 'rgba(208,188,255,0.08)' : 'rgba(103,80,164,0.08)',
+        tooltip: dark ? '#1e1e2e' : '#ffffff',
+        tooltipText: dark ? '#e0e0e0' : '#1c1b1f',
+        tooltipBorder: dark ? '#444' : '#e0e0e0'
+    };
+}
+
+function drawEquity(snapshots) {
+    if (!snapshots?.length) return;
     const ctx = document.getElementById('equityChart').getContext('2d');
-    
-    // Validate snapshots data exists
-    if (!snapshots || !Array.isArray(snapshots) || snapshots.length === 0) {
-        document.getElementById('equityChart').innerHTML = '<p style="color: #dc2626;">No equity data available</p>';
-        return;
-    }
-    
-    const dates = snapshots.map(s => s.date);
-    const values = snapshots.map(s => s.value);
-    
-    // Destroy existing chart
-    if (equityChart) {
-        equityChart.destroy();
-    }
-    
+    if (equityChart) equityChart.destroy();
+    const c = chartColors();
+    const dates = snapshots.map(s => s.date), vals = snapshots.map(s => s.value);
+
     equityChart = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels: dates,
-            datasets: [{
-                label: 'Portfolio Value',
-                data: values,
-                borderColor: '#2563eb',
-                backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                borderWidth: 2,
-                tension: 0.1,
-                fill: true,
-                pointRadius: 0,
-                pointHoverRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    ticks: {
-                        callback: function(value) {
-                            return '$' + formatNumber(value);
-                        }
-                    }
-                },
-                x: {
-                    display: true,
-                    ticks: {
-                        callback: function(index) {
-                            const dateStr = dates[index];
-                            if (dateStr) {
-                                const date = new Date(dateStr);
-                                return date.toLocaleDateString('en-US', {month: 'short', year: '2-digit'});
-                            }
-                            return '';
-                        },
-                        maxRotation: 45,
-                        minRotation: 0,
-                        maxTicksLimit: 12
-                    }
-                }
-            }
-        }
+        data: { labels: dates, datasets: [{ data: vals, borderColor: c.primary, backgroundColor: c.primaryA, borderWidth: 2, tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 5 }] },
+        options: chartOpts(c, dates, v => '$' + fmt(v))
     });
 }
 
-function drawComparisonChart(results) {
-    const canvasEl = document.getElementById('comparisonChart');
-    if (!canvasEl) {
-        console.error('comparisonChart canvas not found');
-        return;
-    }
-    
-    const ctx = canvasEl.getContext('2d');
-    
-    // Destroy existing chart
-    if (comparisonChart) {
-        comparisonChart.destroy();
-    }
-    
-    // Validate results
-    if (!results || results.length === 0) {
-        console.warn('No results provided to drawComparisonChart');
-        return;
-    }
-    
-    // Validate first result has snapshots
-    if (!results[0] || !results[0].snapshots || !Array.isArray(results[0].snapshots) || results[0].snapshots.length === 0) {
-        console.warn('First result has no valid snapshots');
-        canvasEl.parentElement.innerHTML = '<p style="color: #dc2626; text-align: center; padding: 20px;">No comparison data available</p>';
-        return;
-    }
-    
+function drawComparison(results) {
+    const el = document.getElementById('comparisonChart');
+    if (!el) return;
+    const ctx = el.getContext('2d');
+    if (comparisonChart) comparisonChart.destroy();
+    if (!results?.length || !results[0]?.snapshots?.length) return;
+
+    const c = chartColors();
     const dates = results[0].snapshots.map(s => s.date);
-    
-    // Color palette for multiple lines
-    const colors = [
-        { border: '#2563eb', bg: 'rgba(37, 99, 235, 0.1)' },      // Blue
-        { border: '#dc2626', bg: 'rgba(220, 38, 38, 0.1)' },      // Red
-        { border: '#16a34a', bg: 'rgba(22, 163, 74, 0.1)' },      // Green
-        { border: '#ea580c', bg: 'rgba(234, 88, 12, 0.1)' },      // Orange
-        { border: '#7c3aed', bg: 'rgba(124, 58, 237, 0.1)' },     // Purple
-        { border: '#0891b2', bg: 'rgba(8, 145, 178, 0.1)' },      // Cyan
-    ];
-    
-    // Create datasets for each strategy
-    const datasets = results.map((result, index) => {
-        const color = colors[index % colors.length];
-        // Validate each result has snapshots
-        if (!result || !result.snapshots || !Array.isArray(result.snapshots)) {
-            console.warn(`Skipping result ${index}: invalid snapshots`);
-            return null; // Skip invalid results
-        }
-        return {
-            label: result.name,
-            data: result.snapshots.map(s => s.value),
-            borderColor: color.border,
-            backgroundColor: color.bg,
-            borderWidth: 2.5,
-            tension: 0.2,
-            fill: false,
-            pointRadius: 0,
-            pointHoverRadius: 6,
-            spanGaps: true
-        };
-    }).filter(d => d !== null); // Remove null entries
-    
-    if (datasets.length === 0) {
-        console.warn('No valid datasets after filtering');
-        return;
-    }
-    
-    console.log(`Drawing comparison chart with ${datasets.length} datasets`);
-    
+    const palette = c.primary === '#d0bcff'
+        ? ['#d0bcff', '#f2b8b5', '#9dd676', '#efb8c8']
+        : ['#6750a4', '#b3261e', '#386a20', '#984061'];
+
+    const ds = results.filter(r => r?.snapshots?.length).map((r, i) => ({
+        label: r.name, data: r.snapshots.map(s => s.value),
+        borderColor: palette[i % palette.length], borderWidth: 2, tension: 0.3,
+        fill: false, pointRadius: 0, pointHoverRadius: 5, spanGaps: true
+    }));
+
     comparisonChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: dates,
-            datasets: datasets
-        },
+        type: 'line', data: { labels: dates, datasets: ds },
+        options: { ...chartOpts(c, dates, v => '$' + fmt(v)), interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: true, position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 12, color: c.text, font: { size: 11 } } },
+                tooltip: { backgroundColor: c.tooltip, titleColor: c.tooltipText, bodyColor: c.tooltipText, borderColor: c.tooltipBorder, borderWidth: 1, cornerRadius: 8, padding: 10,
+                    callbacks: { label: ctx => ctx.dataset.label + ': $' + fmt(ctx.parsed.y) } } } }
+    });
+}
+
+function drawFrontier(data) {
+    if (!data.frontier?.length) return;
+    const ctx = document.getElementById('frontierChart').getContext('2d');
+    if (frontierChart) frontierChart.destroy();
+    const c = chartColors();
+    const fp = data.frontier.map(p => ({ x: p.volatility * 100, y: p.return * 100 }));
+    const ms = data.max_sharpe ? { x: (data.max_sharpe.volatility || 0) * 100, y: (data.max_sharpe.expected_return || 0) * 100 } : { x: 0, y: 0 };
+    const mv = data.min_variance ? { x: (data.min_variance.volatility || 0) * 100, y: (data.min_variance.expected_return || 0) * 100 } : { x: 0, y: 0 };
+    const green = c.primary === '#d0bcff' ? '#9dd676' : '#386a20';
+    const red = c.primary === '#d0bcff' ? '#f2b8b5' : '#b3261e';
+
+    frontierChart = new Chart(ctx, {
+        type: 'scatter',
+        data: { datasets: [
+            { label: 'Efficient Frontier', data: fp, borderColor: c.primary, backgroundColor: c.primaryA, showLine: true, borderWidth: 2, fill: false, tension: 0.1, pointRadius: 2, pointHoverRadius: 5 },
+            { label: 'Max Sharpe', data: [ms], backgroundColor: green, pointRadius: 8, pointHoverRadius: 10, pointStyle: 'star' },
+            { label: 'Min Variance', data: [mv], backgroundColor: red, pointRadius: 8, pointHoverRadius: 10, pointStyle: 'triangle' }
+        ] },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 15,
-                        font: {
-                            size: 12
-                        }
-                    }
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false,
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': $' + formatNumber(context.parsed.y);
-                        }
-                    }
-                }
-            },
+            responsive: true, maintainAspectRatio: false, animation: { duration: 500 },
+            plugins: { legend: { display: true, position: 'top', labels: { color: c.text, font: { size: 11 } } },
+                tooltip: { backgroundColor: c.tooltip, titleColor: c.tooltipText, bodyColor: c.tooltipText, borderColor: c.tooltipBorder, borderWidth: 1, cornerRadius: 8,
+                    callbacks: { label: ctx => 'Return: ' + ctx.parsed.y.toFixed(2) + '%, Risk: ' + ctx.parsed.x.toFixed(2) + '%' } } },
             scales: {
-                y: {
-                    beginAtZero: false,
-                    ticks: {
-                        callback: function(value) {
-                            return '$' + formatNumber(value);
-                        }
-                    }
-                },
-                x: {
-                    display: true,
-                    ticks: {
-                        callback: function(index) {
-                            const date = new Date(dates[index]);
-                            return date.toLocaleDateString('en-US', {month: 'short', year: '2-digit'});
-                        },
-                        maxRotation: 45,
-                        minRotation: 0,
-                        maxTicksLimit: 12
-                    }
-                }
+                x: { type: 'linear', title: { display: true, text: 'Volatility (%)', color: c.text }, grid: { color: c.grid }, ticks: { color: c.text } },
+                y: { title: { display: true, text: 'Expected Return (%)', color: c.text }, grid: { color: c.grid }, ticks: { color: c.text } }
             }
         }
     });
 }
 
-// ============================================================================
-// PORTFOLIO OPTIMIZATION FUNCTIONS
-// ============================================================================
-
-function switchTab(tabName) {
-    // Hide all tabs
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.add('hidden');
-        tab.classList.remove('active');
-    });
-    
-    // Remove active class from all buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Show selected tab
-    const selectedTab = document.getElementById(`${tabName}-tab`);
-    if (selectedTab) {
-        selectedTab.classList.remove('hidden');
-        selectedTab.classList.add('active');
-    }
-    
-    // Activate button
-    const button = document.querySelector(`[data-tab="${tabName}"]`);
-    if (button) {
-        button.classList.add('active');
-    }
+function chartOpts(c, dates, fmtFn) {
+    return {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 500 },
+        plugins: { legend: { display: false },
+            tooltip: { backgroundColor: c.tooltip, titleColor: c.tooltipText, bodyColor: c.tooltipText, borderColor: c.tooltipBorder, borderWidth: 1, cornerRadius: 8, padding: 10, displayColors: false,
+                callbacks: { label: ctx => fmtFn(ctx.parsed.y) } } },
+        scales: {
+            y: { grid: { color: c.grid }, ticks: { color: c.text, callback: fmtFn } },
+            x: { grid: { display: false }, ticks: { color: c.text, maxTicksLimit: 10, callback: i => { const d = dates[i]; return d ? new Date(d).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) : ''; } } }
+        }
+    };
 }
+
+// ============================================================================
+// OPTIMIZATION
+// ============================================================================
 
 async function runOptimization() {
-    if (currentSymbols.length < 2) {
-        showMessage('Load data with at least 2 symbols to optimize', 'error');
-        return;
-    }
-    
-    const optimizationType = document.querySelector('input[name="optimizationType"]:checked').value;
-    
-    showMessage(`Optimizing for ${optimizationType === 'sharpe' ? 'Maximum Sharpe Ratio' : 'Minimum Variance'}...`, 'loading');
+    if (currentSymbols.length < 2) { showMsg('Need at least 2 symbols', 'error'); return; }
+    abortPrevious();
+    const type = document.querySelector('input[name="optimizationType"]:checked').value;
+    showMsg('Optimizing...', 'loading');
     switchTab('optimization');
-    
+    setBtnLoading(optimizeBtn, true);
+
     try {
-        const response = await fetch('/api/optimize-portfolio', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                symbols: currentSymbols,
-                type: optimizationType
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (!data.success) {
-            showMessage('Optimization failed: ' + data.error, 'error');
-            return;
-        }
-        
-        displayOptimization(data);
-        showMessage(data.message, 'success');
-        
-    } catch (error) {
-        showMessage('Error: ' + error.message, 'error');
-    }
+        const r = await fetchAbort('/api/optimize-portfolio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbols: currentSymbols, type }) });
+        const d = await r.json();
+        if (!d.success) { showMsg('Failed: ' + d.error, 'error'); return; }
+        displayOpt(d);
+        showMsg(d.message, 'success');
+    } catch (e) { if (e.name !== 'AbortError') showMsg(e.message, 'error'); }
+    finally { setBtnLoading(optimizeBtn, false); }
 }
 
 async function runFrontier() {
-    if (currentSymbols.length < 2) {
-        showMessage('Load data with at least 2 symbols', 'error');
-        return;
-    }
-    
-    showMessage('Calculating efficient frontier...', 'loading');
+    if (currentSymbols.length < 2) { showMsg('Need at least 2 symbols', 'error'); return; }
+    abortPrevious();
+    showMsg('Calculating frontier...', 'loading');
     switchTab('optimization');
-    
+    setBtnLoading(frontierBtn, true);
+
     try {
-        const response = await fetch('/api/efficient-frontier', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                symbols: currentSymbols,
-                num_points: 50
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (!data.success) {
-            showMessage('Error: ' + data.error, 'error');
-            return;
-        }
-        
-        displayFrontier(data);
-        showMessage(data.message, 'success');
-        
-    } catch (error) {
-        showMessage('Error: ' + error.message, 'error');
-    }
+        const r = await fetchAbort('/api/efficient-frontier', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbols: currentSymbols, num_points: 50 }) });
+        const d = await r.json();
+        if (!d.success) { showMsg('Error: ' + d.error, 'error'); return; }
+        document.getElementById('optimizationResults').classList.add('hidden');
+        document.getElementById('emptyStateOpt').classList.add('hidden');
+        document.getElementById('frontierResults').classList.remove('hidden');
+        document.getElementById('frontierMaxSharpe').textContent = d.max_sharpe.sharpe_ratio.toFixed(2);
+        document.getElementById('frontierMinVar').textContent = (d.min_variance.volatility * 100).toFixed(2) + '%';
+        document.getElementById('frontierPoints').textContent = d.frontier.length;
+        drawFrontier(d);
+        showMsg(d.message, 'success');
+    } catch (e) { if (e.name !== 'AbortError') showMsg(e.message, 'error'); }
+    finally { setBtnLoading(frontierBtn, false); }
 }
 
-function displayOptimization(data) {
-    // Hide frontier, show optimization
+function displayOpt(d) {
     document.getElementById('frontierResults').classList.add('hidden');
     document.getElementById('emptyStateOpt').classList.add('hidden');
     document.getElementById('optimizationResults').classList.remove('hidden');
-    
-    // Update metrics
-    document.getElementById('optExpectedReturn').textContent = 
-        (data.expected_return * 100).toFixed(2) + '%';
-    document.getElementById('optVolatility').textContent = 
-        (data.volatility * 100).toFixed(2) + '%';
-    document.getElementById('optSharpeRatio').textContent = 
-        data.sharpe_ratio.toFixed(2);
-    
-    // Display weights
-    const weightsHtml = Object.entries(data.weights)
-        .sort((a, b) => b[1] - a[1])
-        .map(([symbol, weight]) => `
-            <div class="weight-row">
-                <div class="weight-symbol">${symbol}</div>
-                <div class="weight-bar-container">
-                    <div class="weight-bar">
-                        <div class="weight-fill" style="width: ${weight * 100}%"></div>
-                    </div>
-                    <div style="font-size: 0.85em; color: #666;">${(weight * 100).toFixed(1)}%</div>
-                </div>
-                <div class="weight-value">${(weight * 100).toFixed(1)}%</div>
-            </div>
-        `).join('');
-    document.getElementById('weightsTable').innerHTML = weightsHtml || '<p>No weights</p>';
-    
-    // Display asset statistics
-    const statsHtml = Object.entries(data.asset_stats)
-        .map(([symbol, stats]) => `
-            <div class="stat-row">
-                <div class="stat-label">${symbol}</div>
-                <div class="stat-value">
-                    <div class="stat-item">
-                        <div class="stat-item-label">Annual Return</div>
-                        <div class="stat-item-value">${(stats.return * 100).toFixed(2)}%</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-item-label">Volatility</div>
-                        <div class="stat-item-value">${(stats.volatility * 100).toFixed(2)}%</div>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-    document.getElementById('assetStatsTable').innerHTML = statsHtml;
-    
-    // Display correlation matrix
-    if (data.correlation && typeof data.correlation === 'object' && Object.keys(data.correlation).length > 0) {
-        const symbols = Object.keys(data.correlation);
-        const corrTable = `
-            <table class="corr-table">
-                <thead>
-                    <tr>
-                        <th></th>
-                        ${symbols.map(s => `<th>${s}</th>`).join('')}
-                    </tr>
-                </thead>
-                <tbody>
-                    ${symbols.map(s1 => `
-                        <tr>
-                            <th>${s1}</th>
-                            ${symbols.map(s2 => {
-                                const corr = data.correlation[s1][s2];
-                                let className = 'corr-neutral';
-                                if (corr > 0.5) className = 'corr-positive';
-                                else if (corr < -0.5) className = 'corr-negative';
-                                return `<td class="corr-cell ${className}">${corr.toFixed(2)}</td>`;
-                            }).join('')}
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-        document.getElementById('correlationTable').innerHTML = corrTable;
-    } else {
-        document.getElementById('correlationTable').innerHTML = '<p style="color: #cbd5e1;">No correlation data available</p>';
+    document.getElementById('optExpectedReturn').textContent = (d.expected_return * 100).toFixed(2) + '%';
+    document.getElementById('optVolatility').textContent = (d.volatility * 100).toFixed(2) + '%';
+    document.getElementById('optSharpeRatio').textContent = d.sharpe_ratio.toFixed(2);
+
+    document.getElementById('weightsTable').innerHTML = Object.entries(d.weights).sort((a, b) => b[1] - a[1]).map(([s, w]) =>
+        '<div class="weight-row"><span class="weight-symbol">' + s + '</span><div class="weight-bar-wrap"><div class="weight-bar"><div class="weight-fill" style="width:' + (w * 100) + '%"></div></div></div><span class="weight-val">' + (w * 100).toFixed(1) + '%</span></div>'
+    ).join('');
+
+    document.getElementById('assetStatsTable').innerHTML = Object.entries(d.asset_stats).map(([s, st]) =>
+        '<div class="stat-row"><span class="stat-label">' + s + '</span><div class="stat-items"><div class="stat-item"><small>Return</small><strong>' + (st.return * 100).toFixed(2) + '%</strong></div><div class="stat-item"><small>Volatility</small><strong>' + (st.volatility * 100).toFixed(2) + '%</strong></div></div></div>'
+    ).join('');
+
+    if (d.correlation) {
+        const syms = Object.keys(d.correlation);
+        document.getElementById('correlationTable').innerHTML = '<table class="corr-table"><thead><tr><th></th>' + syms.map(s => '<th>' + s + '</th>').join('') + '</tr></thead><tbody>' +
+            syms.map(s1 => '<tr><th>' + s1 + '</th>' + syms.map(s2 => { const v = d.correlation[s1][s2]; const cls = v > 0.5 ? 'corr-positive' : v < -0.5 ? 'corr-negative' : ''; return '<td class="' + cls + '">' + v.toFixed(2) + '</td>'; }).join('') + '</tr>').join('') +
+            '</tbody></table>';
     }
 }
 
-function displayFrontier(data) {
-    // Hide optimization, show frontier
-    document.getElementById('optimizationResults').classList.add('hidden');
-    document.getElementById('emptyStateOpt').classList.add('hidden');
-    document.getElementById('frontierResults').classList.remove('hidden');
-    
-    // Update metrics
-    document.getElementById('frontierMaxSharpe').textContent = 
-        data.max_sharpe.sharpe_ratio.toFixed(2);
-    document.getElementById('frontierMinVar').textContent = 
-        (data.min_variance.volatility * 100).toFixed(2) + '%';
-    document.getElementById('frontierPoints').textContent = 
-        data.frontier.length;
-    
-    // Draw frontier chart
-    drawFrontierChart(data);
+// ============================================================================
+// SYMBOL INPUT (Chip/Tag)
+// ============================================================================
+
+let selectedSymbols = [];
+let popularSymbolsData = [];
+let activeACIndex = -1;
+
+const SYMBOL_CHIPS_EL = document.getElementById('symbolChips');
+const SYMBOL_TEXT_EL = document.getElementById('symbolText');
+const SYMBOLS_HIDDEN_EL = document.getElementById('symbols');
+const AUTOCOMPLETE_EL = document.getElementById('symbolsAutocomplete');
+const POPULAR_LIST_EL = document.getElementById('popularList');
+const SYMBOL_INPUT_EL = document.getElementById('symbolInput');
+
+function setupSymbolInput() {
+    renderInitialChips();
+    loadPopularSymbols();
+
+    SYMBOL_TEXT_EL.addEventListener('input', onSymbolInput);
+    SYMBOL_TEXT_EL.addEventListener('keydown', onSymbolKeydown);
+    SYMBOL_TEXT_EL.addEventListener('focus', onSymbolInput);
+    SYMBOL_TEXT_EL.addEventListener('blur', () => setTimeout(hideAutocomplete, 150));
+    SYMBOL_INPUT_EL.addEventListener('click', () => SYMBOL_TEXT_EL.focus());
+
+    if (SYMBOLS_HIDDEN_EL.value.trim()) {
+        const initial = SYMBOLS_HIDDEN_EL.value.split(',').map(s => s.trim()).filter(Boolean);
+        setSymbols(initial, false);
+    }
 }
 
-function drawFrontierChart(data) {
-    const ctx = document.getElementById('frontierChart').getContext('2d');
-    
-    // Validate frontier data exists
-    if (!data.frontier || !Array.isArray(data.frontier) || data.frontier.length === 0) {
-        document.getElementById('frontierChart').innerHTML = '<p style="color: #dc2626;">No frontier data available</p>';
-        return;
-    }
-    
-    // Extract frontier data
-    const frontierPoints = data.frontier.map(p => ({
-        x: p.volatility * 100,
-        y: p.return * 100
-    }));
-    
-    // Get special points with defensive checks
-    const maxSharpe = data.max_sharpe ? {
-        x: (data.max_sharpe.volatility || 0) * 100,
-        y: (data.max_sharpe.expected_return || 0) * 100,
-        label: 'Max Sharpe'
-    } : { x: 0, y: 0, label: 'Max Sharpe' };
-    
-    const minVar = data.min_variance ? {
-        x: (data.min_variance.volatility || 0) * 100,
-        y: (data.min_variance.expected_return || 0) * 100,
-        label: 'Min Variance'
-    } : { x: 0, y: 0, label: 'Min Variance' };
-    
-    if (frontierChart) {
-        frontierChart.destroy();
-    }
-    
-    frontierChart = new Chart(ctx, {
-        type: 'scatter',
-        data: {
-            datasets: [
-                {
-                    label: 'Efficient Frontier',
-                    data: frontierPoints,
-                    borderColor: '#2563eb',
-                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                    showLine: true,
-                    borderWidth: 2,
-                    fill: false,
-                    tension: 0.1,
-                    pointRadius: 3,
-                    pointHoverRadius: 6
-                },
-                {
-                    label: 'Max Sharpe Ratio',
-                    data: [maxSharpe],
-                    backgroundColor: '#16a34a',
-                    pointRadius: 8,
-                    pointHoverRadius: 10,
-                    showLine: false
-                },
-                {
-                    label: 'Min Variance',
-                    data: [minVar],
-                    backgroundColor: '#ea580c',
-                    pointRadius: 8,
-                    pointHoverRadius: 10,
-                    showLine: false
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: (context) => {
-                            const x = context.parsed.x.toFixed(2);
-                            const y = context.parsed.y.toFixed(2);
-                            return `Return: ${y}%, Risk: ${x}%`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    type: 'linear',
-                    title: {
-                        display: true,
-                        text: 'Volatility (%)'
-                    }
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: 'Expected Return (%)'
-                    }
-                }
-            }
+function renderInitialChips() {
+    SYMBOL_CHIPS_EL.innerHTML = '';
+    selectedSymbols.forEach(s => renderChip(s));
+    syncHiddenInput();
+}
+
+function renderChip(sym) {
+    const chip = document.createElement('span');
+    chip.className = 'symbol-chip';
+    chip.dataset.symbol = sym.symbol;
+    chip.innerHTML = '<span class="symbol-chip__ticker">' + sym.symbol + '</span>' +
+        (sym.name ? '<span class="symbol-chip__name">' + sym.name + '</span>' : '') +
+        '<button type="button" class="symbol-chip__remove" aria-label="Remove ' + sym.symbol + '">' +
+        '<span class="material-symbols-rounded">close</span></button>';
+    chip.querySelector('.symbol-chip__remove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeSymbol(sym.symbol);
+    });
+    SYMBOL_CHIPS_EL.appendChild(chip);
+}
+
+function addSymbol(ticker, name) {
+    ticker = ticker.toUpperCase().trim();
+    if (!ticker || selectedSymbols.some(s => s.symbol === ticker)) return false;
+    const sym = { symbol: ticker, name: name || '' };
+    selectedSymbols.push(sym);
+    renderChip(sym);
+    syncHiddenInput();
+    updatePopularVisibility();
+    triggerDataReload();
+    return true;
+}
+
+function removeSymbol(ticker) {
+    selectedSymbols = selectedSymbols.filter(s => s.symbol !== ticker);
+    const chip = SYMBOL_CHIPS_EL.querySelector('[data-symbol="' + ticker + '"]');
+    if (chip) chip.remove();
+    syncHiddenInput();
+    updatePopularVisibility();
+    triggerDataReload();
+}
+
+function setSymbols(tickers, reload) {
+    selectedSymbols = [];
+    SYMBOL_CHIPS_EL.innerHTML = '';
+    tickers.forEach(t => {
+        const ticker = t.toUpperCase().trim();
+        if (ticker) {
+            selectedSymbols.push({ symbol: ticker, name: '' });
+            renderChip({ symbol: ticker, name: '' });
         }
+    });
+    syncHiddenInput();
+    updatePopularVisibility();
+    if (reload !== false) triggerDataReload();
+}
+
+function syncHiddenInput() {
+    SYMBOLS_HIDDEN_EL.value = selectedSymbols.map(s => s.symbol).join(', ');
+}
+
+function getSelectedSymbols() {
+    return selectedSymbols.map(s => s.symbol);
+}
+
+function hideAutocomplete() {
+    AUTOCOMPLETE_EL.classList.add('hidden');
+    AUTOCOMPLETE_EL.innerHTML = '';
+    activeACIndex = -1;
+}
+
+async function fetchAutocomplete(q) {
+    if (!q || q.length < 1) { hideAutocomplete(); return; }
+    try {
+        const r = await fetchAbort('/api/symbols-autocomplete?q=' + encodeURIComponent(q));
+        const d = await r.json();
+        activeACIndex = -1;
+
+        if (!d.results?.length) { hideAutocomplete(); return; }
+
+        let html = '';
+        let lastCat = '';
+        d.results.forEach(item => {
+            if (item.category !== lastCat) {
+                lastCat = item.category;
+                html += '<li class="autocomplete__category">' + item.category + '</li>';
+            }
+            const alreadyAdded = selectedSymbols.some(s => s.symbol === item.symbol);
+            html += '<li class="autocomplete__item' + (alreadyAdded ? ' autocomplete__item--added' : '') + '" data-symbol="' + item.symbol + '" data-name="' + item.name.replace(/"/g, '&quot;') + '">' +
+                '<span class="autocomplete__symbol">' + item.symbol + '</span>' +
+                '<span class="autocomplete__name">' + item.name + '</span>' +
+                (alreadyAdded ? '<span class="autocomplete__added">Added</span>' : '') +
+                '</li>';
+        });
+
+        AUTOCOMPLETE_EL.innerHTML = html;
+        AUTOCOMPLETE_EL.classList.remove('hidden');
+
+        AUTOCOMPLETE_EL.querySelectorAll('.autocomplete__item:not(.autocomplete__item--added)').forEach(item => {
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                addSymbol(item.dataset.symbol, item.dataset.name);
+                SYMBOL_TEXT_EL.value = '';
+                hideAutocomplete();
+                SYMBOL_TEXT_EL.focus();
+            });
+        });
+    } catch (e) {
+        if (e.name !== 'AbortError') hideAutocomplete();
+    }
+}
+
+const debouncedAC = debounce(fetchAutocomplete, 250);
+
+function onSymbolInput() {
+    const q = SYMBOL_TEXT_EL.value.trim();
+    if (q.length < 1) { hideAutocomplete(); return; }
+    debouncedAC(q);
+}
+
+function onSymbolKeydown(e) {
+    const items = AUTOCOMPLETE_EL.querySelectorAll('.autocomplete__item');
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeACIndex = Math.min(activeACIndex + 1, items.length - 1);
+        updateACHighlight(items);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeACIndex = Math.max(activeACIndex - 1, -1);
+        updateACHighlight(items);
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeACIndex >= 0 && items[activeACIndex]) {
+            const sym = items[activeACIndex].dataset.symbol;
+            const name = items[activeACIndex].dataset.name;
+            addSymbol(sym, name);
+            SYMBOL_TEXT_EL.value = '';
+            hideAutocomplete();
+        } else if (SYMBOL_TEXT_EL.value.trim()) {
+            addSymbol(SYMBOL_TEXT_EL.value.trim());
+            SYMBOL_TEXT_EL.value = '';
+            hideAutocomplete();
+        }
+    } else if (e.key === 'Escape') {
+        hideAutocomplete();
+    } else if (e.key === 'Backspace' && !SYMBOL_TEXT_EL.value && selectedSymbols.length) {
+        removeSymbol(selectedSymbols[selectedSymbols.length - 1].symbol);
+    }
+}
+
+function updateACHighlight(items) {
+    items.forEach((item, i) => {
+        item.classList.toggle('autocomplete__item--active', i === activeACIndex);
+    });
+    if (activeACIndex >= 0 && items[activeACIndex]) {
+        items[activeACIndex].scrollIntoView({ block: 'nearest' });
+    }
+}
+
+// === Popular Symbols ===
+
+async function loadPopularSymbols() {
+    try {
+        const r = await fetch('/api/popular-symbols');
+        const d = await r.json();
+        popularSymbolsData = d.symbols || [];
+        renderPopularSymbols();
+    } catch (e) {}
+}
+
+function renderPopularSymbols() {
+    POPULAR_LIST_EL.innerHTML = '';
+    popularSymbolsData.forEach(sym => {
+        if (selectedSymbols.some(s => s.symbol === sym.symbol)) return;
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'popular-chip';
+        chip.dataset.symbol = sym.symbol;
+        chip.textContent = sym.symbol;
+        chip.title = sym.name;
+        chip.addEventListener('click', () => {
+            addSymbol(sym.symbol, sym.name);
+            SYMBOL_TEXT_EL.focus();
+        });
+        POPULAR_LIST_EL.appendChild(chip);
     });
 }
 
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-function formatNumber(num) {
-    return Math.round(num).toLocaleString();
+function updatePopularVisibility() {
+    const container = document.getElementById('popularSymbols');
+    if (!container) return;
+    renderPopularSymbols();
+    container.style.display = POPULAR_LIST_EL.children.length ? '' : 'none';
 }
 
-// ============================================================================
-// AUTOCOMPLETE & VALIDATION FUNCTIONS
-// ============================================================================
-
-async function handleSymbolsInput(e) {
-    const input = e.target;
-    const value = input.value.trim();
-    
-    // Get the last symbol being typed
-    const lastComma = value.lastIndexOf(',');
-    let query = lastComma === -1 ? value : value.substring(lastComma + 1);
-    query = query.trim().toUpperCase();
-    
-    const autocompleteList = document.getElementById('symbolsAutocomplete');
-    
-    if (query.length < 1) {
-        autocompleteList.classList.add('hidden');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/symbols-autocomplete?q=${query}`);
-        const data = await response.json();
-        
-        autocompleteList.innerHTML = '';
-        
-        if (data.suggestions && data.suggestions.length > 0) {
-            data.suggestions.forEach(symbol => {
-                const li = document.createElement('li');
-                li.className = 'autocomplete-item';
-                li.innerHTML = `<strong>${symbol}</strong>`;
-                li.addEventListener('click', () => selectSymbol(symbol, input));
-                autocompleteList.appendChild(li);
-            });
-            autocompleteList.classList.remove('hidden');
-        } else {
-            autocompleteList.classList.add('hidden');
-        }
-    } catch (error) {
-        console.error('Autocomplete error:', error);
-        autocompleteList.classList.add('hidden');
-    }
+function triggerDataReload() {
+    refreshStrategyParams();
+    dataLoaded = false;
+    setDataStatus('loading', 'Loading data...');
+    debouncedDataReload();
 }
 
-function selectSymbol(symbol, inputElement) {
-    const currentValue = inputElement.value.trim();
-    const lastComma = currentValue.lastIndexOf(',');
-    
-    let newValue;
-    if (lastComma === -1) {
-        newValue = symbol;
-    } else {
-        const beforeComma = currentValue.substring(0, lastComma + 1);
-        newValue = beforeComma + ' ' + symbol;
-    }
-    
-    inputElement.value = newValue + ', ';
-    inputElement.focus();
-    
-    document.getElementById('symbolsAutocomplete').classList.add('hidden');
-    
-    // Clear validation message
-    const validationDiv = document.getElementById('symbolsValidation');
-    validationDiv.classList.add('hidden');
-}
+const debouncedDataReload = debounce(() => loadRealData(), 600);
 
-async function validateSymbols(symbols) {
-    if (!symbols || symbols.length === 0) {
-        return;
+function refreshStrategyParams() {
+    const id = strategySelect.value;
+    if (!id) return;
+    const s = strategies.find(x => x.id === id);
+    if (!s) return;
+
+    const isAlloc = id === 'balanced' || id === 'rebalance';
+    if (isAlloc) {
+        const allocEl = document.getElementById('allocSliders');
+        if (allocEl) setupAllocation(selectedSymbols);
     }
-    
-    try {
-        const response = await fetch('/api/validate-symbols', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ symbols: symbols })
-        });
-        
-        const data = await response.json();
-        const validationDiv = document.getElementById('symbolsValidation');
-        
-        if (data.valid) {
-            validationDiv.className = 'symbols-validation success';
-            validationDiv.innerHTML = `✓ All symbols validated (${data.loaded_symbols.length}/${symbols.length})`;
-            validationDiv.classList.remove('hidden');
-            return true;
-        } else {
-            let message = data.error || 'Validation failed';
-            if (data.missing_symbols && data.missing_symbols.length > 0) {
-                if (data.loaded_symbols.length > 0) {
-                    validationDiv.className = 'symbols-validation warning';
-                    message = `⚠ ${data.loaded_symbols.length} valid (missing: ${data.missing_symbols.join(', ')})`;
-                } else {
-                    validationDiv.className = 'symbols-validation error';
-                }
-            } else {
-                validationDiv.className = 'symbols-validation error';
-            }
-            validationDiv.innerHTML = message;
-            validationDiv.classList.remove('hidden');
-            return data.loaded_symbols && data.loaded_symbols.length > 0;
-        }
-    } catch (error) {
-        console.error('Validation error:', error);
-        const validationDiv = document.getElementById('symbolsValidation');
-        validationDiv.className = 'symbols-validation error';
-        validationDiv.innerHTML = '✗ Validation error: ' + error.message;
-        validationDiv.classList.remove('hidden');
-        return false;
+
+    const symbolInput = document.getElementById('param-symbol');
+    if (symbolInput && selectedSymbols.length) {
+        symbolInput.value = selectedSymbols[0].symbol;
     }
 }
 
@@ -1189,16 +819,33 @@ async function validateSymbols(symbols) {
 // ============================================================================
 
 function toggleDarkMode() {
-    const html = document.documentElement;
-    html.classList.toggle('dark-mode');
-    localStorage.setItem('darkMode', html.classList.contains('dark-mode'));
+    const dark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('darkMode', dark);
+    updateDarkIcon(dark);
+    if (equityChart) drawEquity(currentResult?.snapshots || []);
+    if (comparisonChart) {
+        const ld = comparisonChart.data;
+        if (ld) drawComparison(ld.datasets.map(ds => ({ name: ds.label, snapshots: ld.labels.map((date, i) => ({ date, value: ds.data[i] })) })));
+    }
+    if (frontierChart) {
+        const ld = frontierChart.data;
+        if (ld) {
+            const fp = ld.datasets.find(d => d.label === 'Efficient Frontier');
+            if (fp) drawFrontier({ frontier: fp.data.map(p => ({ volatility: p.x / 100, return: p.y / 100 })), max_sharpe: null, min_variance: null });
+        }
+    }
 }
 
-function initializeDarkMode() {
-    const isDarkMode = localStorage.getItem('darkMode') === 'true';
-    if (isDarkMode) {
-        document.documentElement.classList.add('dark-mode');
-    }
+function restoreDarkMode() {
+    const dark = localStorage.getItem('darkMode') === 'true';
+    document.documentElement.classList.toggle('dark', dark);
+    updateDarkIcon(dark);
+}
+
+function updateDarkIcon(dark) {
+    document.getElementById('darkModeToggle').innerHTML = dark
+        ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+        : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
 }
 
 // ============================================================================
@@ -1206,209 +853,112 @@ function initializeDarkMode() {
 // ============================================================================
 
 function setupDateRange() {
-    const today = new Date();
-    const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-    
-    const startDateInput = document.getElementById('startDate');
-    const endDateInput = document.getElementById('endDate');
-    
-    if (startDateInput && endDateInput) {
-        startDateInput.valueAsDate = oneYearAgo;
-        endDateInput.valueAsDate = today;
-    }
-}
-
-async function loadRealDataWithDates() {
-    // Just call loadRealData - it now handles both date ranges and numDays
-    await loadRealData();
+    const now = new Date(), ago = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    document.getElementById('startDate').valueAsDate = ago;
+    document.getElementById('endDate').valueAsDate = now;
 }
 
 // ============================================================================
-// PRESET TEMPLATES
+// PRESETS
 // ============================================================================
 
-const PRESET_TEMPLATES = {
-    conservative: {
-        name: 'Conservative (60/40)',
-        symbols: ['VTI', 'AGG'],  // US Total Market, US Aggregate Bonds
-        allocation: { 'VTI': 0.6, 'AGG': 0.4 }
-    },
-    balanced: {
-        name: 'Balanced (50/50)',
-        symbols: ['VTI', 'VXUS'],  // US & International stocks
-        allocation: { 'VTI': 0.5, 'VXUS': 0.5 }
-    },
-    aggressive: {
-        name: 'Aggressive (80/20)',
-        symbols: ['QQQ', 'VTI'],  // Tech & Total US Market
-        allocation: { 'QQQ': 0.8, 'VTI': 0.2 }
-    },
-    growth: {
-        name: 'Growth (100% Stocks)',
-        symbols: ['VTI', 'VXUS'],
-        allocation: { 'VTI': 0.6, 'VXUS': 0.4 }
-    }
+const PRESETS = {
+    conservative: { name: 'Conservative (60/40)', symbols: ['VTI', 'AGG'], alloc: { VTI: 0.6, AGG: 0.4 } },
+    balanced: { name: 'Balanced (50/50)', symbols: ['VTI', 'VXUS'], alloc: { VTI: 0.5, VXUS: 0.5 } },
+    aggressive: { name: 'Aggressive (80/20)', symbols: ['QQQ', 'VTI'], alloc: { QQQ: 0.8, VTI: 0.2 } },
+    growth: { name: 'Growth (100% Stocks)', symbols: ['VTI', 'VXUS'], alloc: { VTI: 0.6, VXUS: 0.4 } }
 };
 
-function applyPresetTemplate(preset) {
-    const template = PRESET_TEMPLATES[preset];
-    if (!template) return;
-    
-    // Get current symbols instead of replacing them
-    const currentSymbolsText = document.getElementById('symbols').value.trim();
-    const currentSymbolsList = currentSymbolsText.split(',').map(s => s.trim()).filter(s => s);
-    
-    if (currentSymbolsList.length === 0) {
-        // Only set symbols if user hasn't loaded any yet
-        document.getElementById('symbols').value = template.symbols.join(', ');
-        currentSymbols = template.symbols;
-    }
-    // Otherwise keep the user's current symbols
-    
-    // Select balanced strategy
-    document.getElementById('strategySelect').value = 'balanced';
-    
-    // Trigger strategy change to show allocation builder
-    const event = new Event('change', { bubbles: true });
-    document.getElementById('strategySelect').dispatchEvent(event);
-    
-    // After a brief delay, update allocation sliders with preset weights
-    // But only for symbols that actually exist in current selection
-    setTimeout(() => {
-        updatePresetsAllocation(template.allocation);
-    }, 100);
-    
-    showMessage(`✓ Applied ${template.name} preset (keeping your symbols)`, 'success');
-}
-
-function updatePresetsAllocation(allocation) {
-    for (const [symbol, percent] of Object.entries(allocation)) {
-        const slider = document.getElementById(`slider-${symbol}`);
-        if (slider) {
-            slider.value = percent * 100;
-            slider.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-    }
+function setupPresets() {
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const t = PRESETS[btn.dataset.preset];
+            if (!t) return;
+            setSymbols(t.symbols, true);
+            strategySelect.value = 'balanced';
+            strategySelect.dispatchEvent(new Event('change'));
+            setTimeout(() => {
+                Object.entries(t.alloc).forEach(([s, p]) => {
+                    const sl = document.querySelector('[data-symbol="' + s + '"]');
+                    if (sl) { sl.value = p * 100; sl.dispatchEvent(new Event('input')); }
+                });
+            }, 100);
+            showMsg('Applied ' + t.name + ' preset', 'success');
+        });
+    });
 }
 
 // ============================================================================
-// SAVE / LOAD CONFIGURATION
+// CONFIG SAVE/LOAD
 // ============================================================================
 
-function saveCurrentConfig() {
-    const configName = document.getElementById('configName').value.trim();
-    if (!configName) {
-        showMessage('Please enter a configuration name', 'warning');
-        return;
-    }
-    
-    const config = {
-        name: configName,
-        symbols: document.getElementById('symbols').value,
-        startDate: document.getElementById('startDate').value,
-        endDate: document.getElementById('endDate').value,
-        initialCapital: document.getElementById('initialCapital').value,
-        strategy: document.getElementById('strategySelect').value,
+function saveConfig() {
+    const name = document.getElementById('configName').value.trim();
+    if (!name) { showMsg('Enter a config name', 'warning'); return; }
+    const cfg = {
+        name, symbols: document.getElementById('symbols').value,
+        startDate: document.getElementById('startDate').value, endDate: document.getElementById('endDate').value,
+        initialCapital: document.getElementById('initialCapital').value, strategy: strategySelect.value,
         timestamp: new Date().toISOString()
     };
-    
-    // Get allocation if it exists
-    const allocationJSON = document.getElementById('allocationJSON');
-    if (allocationJSON) {
-        config.allocation = allocationJSON.value;
-    }
-    
-    // Get other strategy params
-    const paramInputs = document.querySelectorAll('.param-input');
-    config.params = {};
-    paramInputs.forEach(input => {
-        config.params[input.name] = input.value;
-    });
-    
-    // Save to localStorage
-    let savedConfigs = JSON.parse(localStorage.getItem('backtesterConfigs') || '{}');
-    savedConfigs[configName] = config;
-    localStorage.setItem('backtesterConfigs', JSON.stringify(savedConfigs));
-    
+    const aj = document.getElementById('allocJSON');
+    if (aj) cfg.allocation = aj.value;
+    const params = {};
+    document.querySelectorAll('.param-input').forEach(i => { params[i.name] = i.value; });
+    cfg.params = params;
+    const saved = JSON.parse(localStorage.getItem('backtesterConfigs') || '{}');
+    saved[name] = cfg;
+    localStorage.setItem('backtesterConfigs', JSON.stringify(saved));
     document.getElementById('configName').value = '';
     loadSavedConfigs();
-    showMessage(`✓ Configuration "${configName}" saved`, 'success');
+    showMsg('Saved "' + name + '"', 'success');
 }
 
 function loadSavedConfigs() {
-    const savedConfigs = JSON.parse(localStorage.getItem('backtesterConfigs') || '{}');
-    const select = document.getElementById('savedConfigs');
-    
-    select.innerHTML = '<option value="">-- No saved configs --</option>';
-    
-    Object.keys(savedConfigs).forEach(name => {
-        const option = document.createElement('option');
-        option.value = name;
-        option.textContent = name;
-        select.appendChild(option);
-    });
+    const saved = JSON.parse(localStorage.getItem('backtesterConfigs') || '{}');
+    const sel = document.getElementById('savedConfigs');
+    sel.innerHTML = '<option value="">-- No saved configs --</option>';
+    Object.keys(saved).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
 }
 
-function loadSelectedConfig() {
-    const configName = document.getElementById('savedConfigs').value;
-    if (!configName) {
-        showMessage('Please select a configuration', 'warning');
-        return;
-    }
-    
-    const savedConfigs = JSON.parse(localStorage.getItem('backtesterConfigs') || '{}');
-    const config = savedConfigs[configName];
-    
-    if (!config) {
-        showMessage('Configuration not found', 'error');
-        return;
-    }
-    
-    // Load values
-    document.getElementById('symbols').value = config.symbols;
-    document.getElementById('startDate').value = config.startDate || '';
-    document.getElementById('endDate').value = config.endDate || '';
-    document.getElementById('initialCapital').value = config.initialCapital;
-    document.getElementById('strategySelect').value = config.strategy;
-    
-    // Trigger strategy change
-    const event = new Event('change', { bubbles: true });
-    document.getElementById('strategySelect').dispatchEvent(event);
-    
-    // Load params
+function loadConfig() {
+    const name = document.getElementById('savedConfigs').value;
+    if (!name) { showMsg('Select a config', 'warning'); return; }
+    const cfg = JSON.parse(localStorage.getItem('backtesterConfigs') || '{}')[name];
+    if (!cfg) { showMsg('Not found', 'error'); return; }
+    const syms = cfg.symbols.split(',').map(s => s.trim()).filter(Boolean);
+    setSymbols(syms, false);
+    document.getElementById('startDate').value = cfg.startDate || '';
+    document.getElementById('endDate').value = cfg.endDate || '';
+    document.getElementById('initialCapital').value = cfg.initialCapital;
+    strategySelect.value = cfg.strategy;
+    strategySelect.dispatchEvent(new Event('change'));
     setTimeout(() => {
-        if (config.allocation) {
-            const allocationJSON = document.getElementById('allocationJSON');
-            if (allocationJSON) {
-                allocationJSON.value = config.allocation;
-                updateAllocationDisplay();
-            }
-        }
-        
-        if (config.params) {
-            Object.entries(config.params).forEach(([name, value]) => {
-                const input = document.querySelector(`[name="${name}"]`);
-                if (input) input.value = value;
-            });
-        }
+        if (cfg.allocation) { const aj = document.getElementById('allocJSON'); if (aj) { aj.value = cfg.allocation; updateAlloc(); } }
+        if (cfg.params) Object.entries(cfg.params).forEach(([n, v]) => { const i = document.querySelector('[name="' + n + '"]'); if (i) i.value = v; });
     }, 100);
-    
-    showMessage(`✓ Loaded configuration: ${configName}`, 'success');
+    showMsg('Loaded "' + name + '"', 'success');
 }
 
-function deleteSelectedConfig() {
-    const configName = document.getElementById('savedConfigs').value;
-    if (!configName) {
-        showMessage('Please select a configuration to delete', 'warning');
-        return;
-    }
-    
-    if (!confirm(`Delete configuration "${configName}"?`)) return;
-    
-    const savedConfigs = JSON.parse(localStorage.getItem('backtesterConfigs') || '{}');
-    delete savedConfigs[configName];
-    localStorage.setItem('backtesterConfigs', JSON.stringify(savedConfigs));
-    
+function deleteConfig() {
+    const name = document.getElementById('savedConfigs').value;
+    if (!name) { showMsg('Select a config to delete', 'warning'); return; }
+    if (!confirm('Delete "' + name + '"?')) return;
+    const saved = JSON.parse(localStorage.getItem('backtesterConfigs') || '{}');
+    delete saved[name];
+    localStorage.setItem('backtesterConfigs', JSON.stringify(saved));
     loadSavedConfigs();
-    showMessage(`✓ Configuration deleted`, 'success');
+    showMsg('Deleted', 'success');
+}
+
+// ============================================================================
+// RESULT PERSISTENCE
+// ============================================================================
+
+function saveResults() { try { if (currentResult) localStorage.setItem('lastBacktestResult', JSON.stringify(currentResult)); } catch (e) {} }
+function restoreResults() {
+    try {
+        const s = localStorage.getItem('lastBacktestResult');
+        if (s) { const r = JSON.parse(s); if (r?.snapshots) { currentResult = r; displaySingle(r); } }
+    } catch (e) {}
 }

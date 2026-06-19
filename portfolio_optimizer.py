@@ -186,7 +186,7 @@ class PortfolioOptimizer:
             try:
                 vol, ret, weights = self._target_return_portfolio(target)
                 frontier.append((vol, ret, weights))
-            except:
+            except Exception:
                 continue
         
         return frontier
