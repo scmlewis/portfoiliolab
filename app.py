@@ -54,8 +54,8 @@ def get_strategy_options():
             'id': 'momentum',
             'name': 'Momentum Strategy',
             'params': [
-                {'name': 'short_window', 'type': 'number', 'label': 'Short MA Window', 'value': '20'},
-                {'name': 'long_window', 'type': 'number', 'label': 'Long MA Window', 'value': '50'}
+                {'name': 'short_window', 'type': 'number', 'label': 'Short Moving Average (days)', 'value': '20'},
+                {'name': 'long_window', 'type': 'number', 'label': 'Long Moving Average (days)', 'value': '50'}
             ]
         },
         {
@@ -63,7 +63,7 @@ def get_strategy_options():
             'name': 'Rebalancing Strategy',
             'params': [
                 {'name': 'allocation_json', 'type': 'text', 'label': 'JSON Allocation', 'value': '{"VTI": 0.5, "BND": 0.5}'},
-                {'name': 'frequency', 'type': 'number', 'label': 'Rebalance Days', 'value': '63'}
+                {'name': 'frequency', 'type': 'number', 'label': 'Rebalance Frequency (days)', 'value': '63'}
             ]
         },
         {
@@ -71,8 +71,8 @@ def get_strategy_options():
             'name': 'RSI Oversold Strategy',
             'params': [
                 {'name': 'symbol', 'type': 'text', 'label': 'Symbol', 'value': ''},
-                {'name': 'rsi_period', 'type': 'number', 'label': 'RSI Period', 'value': '14'},
-                {'name': 'oversold_level', 'type': 'number', 'label': 'Oversold Level', 'value': '30'},
+                {'name': 'rsi_period', 'type': 'number', 'label': 'RSI Lookback Period', 'value': '14'},
+                {'name': 'oversold_level', 'type': 'number', 'label': 'Oversold Threshold', 'value': '30'},
                 {'name': 'allocation', 'type': 'number', 'label': 'Allocation %', 'value': '1.0'}
             ]
         },
@@ -81,9 +81,9 @@ def get_strategy_options():
             'name': 'MACD Crossover Strategy',
             'params': [
                 {'name': 'symbol', 'type': 'text', 'label': 'Symbol', 'value': ''},
-                {'name': 'fast', 'type': 'number', 'label': 'Fast EMA', 'value': '12'},
-                {'name': 'slow', 'type': 'number', 'label': 'Slow EMA', 'value': '26'},
-                {'name': 'signal', 'type': 'number', 'label': 'Signal Line', 'value': '9'},
+                {'name': 'fast', 'type': 'number', 'label': 'Fast EMA Period', 'value': '12'},
+                {'name': 'slow', 'type': 'number', 'label': 'Slow EMA Period', 'value': '26'},
+                {'name': 'signal', 'type': 'number', 'label': 'Signal Line Period', 'value': '9'},
                 {'name': 'allocation', 'type': 'number', 'label': 'Allocation %', 'value': '1.0'}
             ]
         },
@@ -92,7 +92,7 @@ def get_strategy_options():
             'name': 'Bollinger Bands Strategy',
             'params': [
                 {'name': 'symbol', 'type': 'text', 'label': 'Symbol', 'value': ''},
-                {'name': 'period', 'type': 'number', 'label': 'Period', 'value': '20'},
+                {'name': 'period', 'type': 'number', 'label': 'Period (days)', 'value': '20'},
                 {'name': 'num_std', 'type': 'number', 'label': 'Standard Deviations', 'value': '2.0'},
                 {'name': 'allocation', 'type': 'number', 'label': 'Allocation %', 'value': '1.0'}
             ]
@@ -601,7 +601,39 @@ def api_backtest():
             strategy_name=f"Strategy: {strategy_id}"
         )
 
-        return jsonify({
+        benchmark_data = None
+        try:
+            benchmark_assets, _ = _load_assets(['SPY'], num_days, use_real_data)
+            if 'SPY' in benchmark_assets:
+                spy = benchmark_assets['SPY']
+                dates = spy.price_data.dates
+                prices = spy.price_data.prices
+                if prices:
+                    bench_initial = initial_capital
+                    bench_shares = bench_initial / prices[0]
+                    bench_snapshots = []
+                    step = max(1, len(dates) // 50)
+                    for i in range(0, len(dates), step):
+                        val = bench_shares * prices[i]
+                        ret = (val - bench_initial) / bench_initial
+                        bench_snapshots.append({
+                            'date': dates[i],
+                            'value': round(val, 2),
+                            'returns': round(ret * 100, 2)
+                        })
+                    bench_final = bench_shares * prices[-1]
+                    bench_return = (bench_final - bench_initial) / bench_initial
+                    years = num_days / 252
+                    bench_annual = (1 + bench_return) ** (1 / years) - 1 if years > 0 else 0
+                    benchmark_data = {
+                        'snapshots': bench_snapshots,
+                        'total_return': round(bench_return * 100, 2),
+                        'annual_return': round(bench_annual * 100, 2)
+                    }
+        except Exception:
+            pass
+
+        response = {
             'success': True,
             'result': {
                 'strategy_name': result.strategy_name,
@@ -620,9 +652,24 @@ def api_backtest():
                         'returns': round(snap.returns * 100, 2)
                     }
                     for snap in result.snapshots[::max(1, len(result.snapshots)//50)]
+                ],
+                'trades': [
+                    {
+                        'date': trade.date,
+                        'symbol': trade.symbol,
+                        'action': trade.action,
+                        'quantity': round(trade.quantity, 4),
+                        'price': round(trade.price, 2),
+                        'value': round(trade.value, 2)
+                    }
+                    for trade in result.trades
                 ]
             }
-        })
+        }
+        if benchmark_data:
+            response['result']['benchmark'] = benchmark_data
+
+        return jsonify(response)
 
     except Exception as e:
         traceback.print_exc()
@@ -928,7 +975,15 @@ def api_monte_carlo():
                 returns = [(prices[i] - prices[i-1]) / prices[i-1] for i in range(1, len(prices))]
                 returns_dict[symbol] = returns
 
-        weights = {symbol: 1.0 / len(symbols) for symbol in symbols}
+        custom_weights = data.get('weights')
+        if custom_weights and isinstance(custom_weights, dict):
+            total = sum(custom_weights.values())
+            if total > 0:
+                weights = {s: custom_weights.get(s, 0) / total for s in symbols}
+            else:
+                weights = {symbol: 1.0 / len(symbols) for symbol in symbols}
+        else:
+            weights = {symbol: 1.0 / len(symbols) for symbol in symbols}
 
         simulator = PortfolioMonteCarloSimulator(returns_dict, weights)
         results = simulator.simulate(

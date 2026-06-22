@@ -5,6 +5,17 @@ from src.assets import Asset, AssetType
 
 
 @dataclass
+class Trade:
+    """Represents a single trade."""
+    date: str
+    symbol: str
+    action: str  # "BUY" or "SELL"
+    quantity: float
+    price: float
+    value: float
+
+
+@dataclass
 class Position:
     """Represents a position in an asset."""
     asset: Asset
@@ -36,6 +47,7 @@ class BacktestResult:
     max_drawdown: float
     sharpe_ratio: float
     snapshots: List[PortfolioSnapshot] = field(default_factory=list)
+    trades: List[Trade] = field(default_factory=list)
 
 
 class Portfolio:
@@ -53,8 +65,9 @@ class Portfolio:
         self.cash = initial_capital
         self.initial_capital = initial_capital
         self.positions: Dict[str, Position] = {}
+        self.trades: List[Trade] = []
     
-    def buy(self, asset: Asset, quantity: float, price: float, date_index: int):
+    def buy(self, asset: Asset, quantity: float, price: float, date_index: int, date: str = ''):
         """Buy an asset.
         
         Args:
@@ -62,6 +75,7 @@ class Portfolio:
             quantity: Number of units to buy (must be > 0)
             price: Price per unit (must be > 0)
             date_index: Date index for the trade
+            date: Date string for trade logging (uses current_date if empty)
             
         Raises:
             ValueError: If quantity or price is invalid, or insufficient cash
@@ -90,14 +104,21 @@ class Portfolio:
                 entry_price=price,
                 entry_date_index=date_index
             )
+        
+        trade_date = date or getattr(self, 'current_date', '')
+        self.trades.append(Trade(
+            date=trade_date, symbol=asset.symbol, action='BUY',
+            quantity=quantity, price=price, value=cost
+        ))
     
-    def sell(self, symbol: str, quantity: float, price: float):
+    def sell(self, symbol: str, quantity: float, price: float, date: str = ''):
         """Sell an asset.
         
         Args:
             symbol: Symbol of asset to sell
             quantity: Number of units to sell (must be > 0)
             price: Price per unit (must be > 0)
+            date: Date string for trade logging (uses current_date if empty)
             
         Raises:
             ValueError: If symbol not found, quantity invalid, or price invalid
@@ -120,6 +141,12 @@ class Portfolio:
         
         if pos.quantity == 0:
             del self.positions[symbol]
+        
+        trade_date = date or getattr(self, 'current_date', '')
+        self.trades.append(Trade(
+            date=trade_date, symbol=symbol, action='SELL',
+            quantity=quantity, price=price, value=proceeds
+        ))
     
     def get_value(self, date_index: int) -> float:
         """Get total portfolio value at a given date."""
@@ -137,7 +164,7 @@ class Portfolio:
             price = pos.asset.get_price(date_index)
             positions_dict[symbol] = (pos.quantity, price)
         
-        returns = (total_value - self.initial_capital) / self.initial_capital
+        returns = (total_value - self.initial_capital) / self.initial_capital if self.initial_capital > 0 else 0
         
         return PortfolioSnapshot(
             date=date,
@@ -197,10 +224,9 @@ class Backtester:
         snapshots = []
         
         for date_index in range(self.num_periods):
-            # Execute strategy
+            portfolio.current_date = self.dates[date_index]
             strategy_func(self, portfolio, date_index)
             
-            # Record snapshot
             snapshot = portfolio.get_snapshot(self.dates[date_index], date_index)
             snapshots.append(snapshot)
         
@@ -229,7 +255,8 @@ class Backtester:
             annual_return=annual_return,
             max_drawdown=max_drawdown,
             sharpe_ratio=sharpe_ratio,
-            snapshots=snapshots
+            snapshots=snapshots,
+            trades=portfolio.trades
         )
     
     @staticmethod
@@ -245,7 +272,7 @@ class Backtester:
             if snapshot.total_value > peak:
                 peak = snapshot.total_value
             
-            dd = (peak - snapshot.total_value) / peak
+            dd = (peak - snapshot.total_value) / peak if peak > 0 else 0
             max_dd = max(max_dd, dd)
         
         return max_dd
@@ -261,7 +288,7 @@ class Backtester:
         for i in range(1, len(snapshots)):
             prev_value = snapshots[i - 1].total_value
             curr_value = snapshots[i].total_value
-            daily_return = (curr_value - prev_value) / prev_value
+            daily_return = (curr_value - prev_value) / prev_value if prev_value > 0 else 0
             returns.append(daily_return)
         
         if not returns:

@@ -10,10 +10,11 @@ let strategies = [];
 let currentSymbols = [];
 let activeAbortControllers = [];
 let dataLoaded = false;
+let currentAllocations = {};
+let savedStrategyParams = {};
 
 // DOM
 const backtestBtn = document.getElementById('backtestBtn');
-const quickCompareBtn = document.getElementById('quickCompareBtn');
 const strategySelect = document.getElementById('strategySelect');
 const strategyParams = document.getElementById('strategyParams');
 const statusEl = document.getElementById('status');
@@ -34,8 +35,12 @@ async function init() {
     setupTabs();
     setupSymbolInput();
     setupHelp();
+    setupTooltips();
+    setupStrategyPicker();
+    setupOnboarding();
     restoreDarkMode();
     restoreResults();
+    const fromURL = loadFromURL();
     autoLoadData();
 }
 
@@ -45,17 +50,53 @@ async function init() {
 
 function setupEventListeners() {
     backtestBtn.addEventListener('click', runBacktest);
-    quickCompareBtn.addEventListener('click', runQuickCompare);
+    document.getElementById('compareSelectedBtn').addEventListener('click', runCompareSelected);
     strategySelect.addEventListener('change', onStrategyChange);
     optimizeBtn.addEventListener('click', runOptimization);
     frontierBtn.addEventListener('click', runFrontier);
 
     document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
 
+    document.getElementById('monteCarloBtn').addEventListener('click', runMonteCarlo);
     document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
     document.getElementById('loadConfigBtn').addEventListener('click', loadConfig);
     document.getElementById('deleteConfigBtn').addEventListener('click', deleteConfig);
     loadSavedConfigs();
+
+    document.getElementById('exportCsvBtn').addEventListener('click', exportCSV);
+    document.getElementById('exportTradesBtn').addEventListener('click', exportTrades);
+    document.getElementById('exportPdfBtn').addEventListener('click', exportPDF);
+    document.getElementById('benchmarkToggle').addEventListener('change', toggleBenchmark);
+
+    document.addEventListener('keydown', handleKeyboard);
+}
+
+// ============================================================================
+// KEYBOARD SHORTCUTS
+// ============================================================================
+
+function handleKeyboard(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+    const ctrl = e.ctrlKey || e.metaKey;
+
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('helpModal');
+        if (modal && !modal.classList.contains('hidden')) { modal.classList.add('hidden'); return; }
+        const onb = document.getElementById('onboardingOverlay');
+        if (onb && !onb.classList.contains('hidden')) { onboardingClose(); return; }
+        hideTooltip();
+        return;
+    }
+
+    if (ctrl && e.key === 'Enter') { e.preventDefault(); runBacktest(); return; }
+    if (ctrl && e.key === 'd') { e.preventDefault(); toggleDarkMode(); return; }
+    if (ctrl && e.key === 's') { e.preventDefault(); saveConfig(); return; }
+    if (!ctrl && e.key === '?') {
+        const modal = document.getElementById('helpModal');
+        if (modal) modal.classList.toggle('hidden');
+        return;
+    }
 }
 
 // ============================================================================
@@ -128,11 +169,273 @@ async function loadRealData() {
 }
 
 // ============================================================================
-// HELP TAB
+// HELP MODAL
 // ============================================================================
 
 function setupHelp() {
-    document.getElementById('helpBtn').addEventListener('click', () => switchTab('help'));
+    const modal = document.getElementById('helpModal');
+    const helpBtn = document.getElementById('helpBtn');
+    const closeBtn = document.getElementById('helpCloseBtn');
+
+    helpBtn.addEventListener('click', () => modal.classList.remove('hidden'));
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            modal.classList.add('hidden');
+        }
+    });
+}
+
+// ============================================================================
+// TOOLTIPS
+// ============================================================================
+
+const TOOLTIP_DEFS = {
+    totalReturn: { title: 'Total Return', desc: 'The overall percentage gain or loss from your initial investment over the entire period.' },
+    annualReturn: { title: 'Annual Return', desc: 'The average yearly return, adjusted for compounding. Useful for comparing investments of different lengths.' },
+    maxDrawdown: { title: 'Max Drawdown', desc: 'The largest peak-to-trust decline during the period. Lower is better — it shows the worst-case loss you would have experienced.' },
+    sharpeRatio: { title: 'Sharpe Ratio', desc: 'Risk-adjusted return. Higher is better — it means you earned more return per unit of risk taken. Above 1 is good, above 2 is excellent.' },
+    expectedReturn: { title: 'Expected Return', desc: 'The estimated annual return based on historical averages and the optimal allocation found by the optimizer.' },
+    volatility: { title: 'Volatility', desc: 'How much the portfolio value fluctuates. Higher volatility means bigger swings — both up and down.' }
+};
+
+let activeTooltip = null;
+
+function setupTooltips() {
+    document.addEventListener('mouseover', (e) => {
+        const trigger = e.target.closest('.tooltip-trigger');
+        if (!trigger) return;
+        const key = trigger.dataset.tooltip;
+        const def = TOOLTIP_DEFS[key];
+        if (!def) return;
+        showTooltip(trigger, def);
+    });
+    document.addEventListener('mouseout', (e) => {
+        const trigger = e.target.closest('.tooltip-trigger');
+        if (!trigger) return;
+        hideTooltip();
+    });
+}
+
+// ============================================================================
+// ONBOARDING
+// ============================================================================
+
+const ONBOARDING_STEPS = [
+    { title: 'Welcome to PortfolioLab', desc: 'This tool lets you backtest investment strategies using real Yahoo Finance data. Let\'s walk through the key areas.' },
+    { title: '1. Load Assets', desc: 'Enter a ticker symbol (e.g. AAPL, MSFT, SPY) and click Load Data. You can add up to 5 assets to compare.' },
+    { title: '2. Configure Strategy', desc: 'Choose a strategy from the dropdown and adjust parameters. Adjust allocation weights in the pie chart or by number.' },
+    { title: '3. Run & Compare', desc: 'Click Run Backtest to see results. Use Compare Strategies in the Advanced section to test multiple strategies side-by-side.' }
+];
+let onboardingIdx = 0;
+
+function setupOnboarding() {
+    const overlay = document.getElementById('onboardingOverlay');
+    if (!overlay) return;
+    if (localStorage.getItem('portfoliolab_onboarded') === '1') return;
+    const nextBtn = document.getElementById('onboardingNext');
+    const skipBtn = document.getElementById('onboardingSkip');
+    nextBtn.addEventListener('click', onboardingNext);
+    skipBtn.addEventListener('click', onboardingClose);
+    showOnboardingStep();
+    overlay.classList.remove('hidden');
+}
+
+function showOnboardingStep() {
+    const s = ONBOARDING_STEPS[onboardingIdx];
+    document.getElementById('onboardingStep').textContent = 'Step ' + (onboardingIdx + 1) + ' of ' + ONBOARDING_STEPS.length;
+    document.getElementById('onboardingTitle').textContent = s.title;
+    document.getElementById('onboardingDesc').textContent = s.desc;
+    document.getElementById('onboardingNext').textContent = onboardingIdx === ONBOARDING_STEPS.length - 1 ? 'Get Started' : 'Next';
+    const dots = document.getElementById('onboardingDots');
+    dots.innerHTML = ONBOARDING_STEPS.map((_, i) =>
+        '<div class="onboarding__dot' + (i === onboardingIdx ? ' active' : '') + '"></div>'
+    ).join('');
+}
+
+function onboardingNext() {
+    if (onboardingIdx < ONBOARDING_STEPS.length - 1) {
+        onboardingIdx++;
+        showOnboardingStep();
+    } else {
+        onboardingClose();
+    }
+}
+
+function onboardingClose() {
+    document.getElementById('onboardingOverlay').classList.add('hidden');
+    localStorage.setItem('portfoliolab_onboarded', '1');
+}
+
+function showTooltip(trigger, def) {
+    hideTooltip();
+    const tip = document.createElement('div');
+    tip.className = 'tooltip';
+    tip.innerHTML = '<div class="tooltip__title">' + def.title + '</div><div class="tooltip__desc">' + def.desc + '</div>';
+    trigger.appendChild(tip);
+    activeTooltip = tip;
+}
+
+function hideTooltip() {
+    if (activeTooltip) { activeTooltip.remove(); activeTooltip = null; }
+}
+
+// ============================================================================
+// MONTE CARLO SIMULATION
+// ============================================================================
+
+function runMonteCarlo() {
+    try {
+        abortPrevious();
+        const { symbols, numDays, initialCapital } = getParams();
+        if (!symbols.length) { showMsg('Load symbols first', 'warning'); return; }
+        if (!dataLoaded) { showMsg('Wait for data to load', 'error'); return; }
+
+        const sims = parseInt(document.querySelector('input[name="mcSims"]:checked').value);
+        showMsg('Running ' + sims.toLocaleString() + ' simulations...', 'loading');
+        setBtnLoading(document.getElementById('monteCarloBtn'), true);
+
+        fetchAbort('/api/monte-carlo', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbols, num_simulations: sims, num_days: numDays, initial_value: initialCapital, weights: currentAllocations })
+        }).then(r => r.json()).then(d => {
+            if (d.success) { displayMonteCarlo(d); showMsg('Simulation completed', 'success'); }
+            else showMsg('Error: ' + d.error, 'error');
+        }).catch(e => { if (e.name !== 'AbortError') showMsg('Error: ' + e.message, 'error'); })
+          .finally(() => setBtnLoading(document.getElementById('monteCarloBtn'), false));
+    } catch (e) { if (e.name !== 'AbortError') showMsg('Error: ' + e.message, 'error'); }
+}
+
+function displayMonteCarlo(d) {
+    const el = document.getElementById('monteCarloResults');
+    if (!el) return;
+
+    const stats = d.statistics;
+    const fmt = v => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v);
+    const pct = v => (v * 100).toFixed(1) + '%';
+
+    let html = '<div class="results__header"><h2 class="results__title"><span class="material-symbols-rounded">casino</span> Monte Carlo Simulation</h2></div>';
+    html += '<div class="metric-row">';
+    html += '<div class="metric-card metric-card--compact"><div class="metric-card__title">Median Final Value</div><div class="metric-card__value">' + fmt(stats.median) + '</div></div>';
+    html += '<div class="metric-card metric-card--compact"><div class="metric-card__title">Mean Final Value</div><div class="metric-card__value">' + fmt(stats.mean) + '</div></div>';
+    html += '<div class="metric-card metric-card--compact"><div class="metric-card__title">5th Percentile</div><div class="metric-card__value">' + fmt(stats.percentiles['5th']) + '</div></div>';
+    html += '<div class="metric-card metric-card--compact"><div class="metric-card__title">95th Percentile</div><div class="metric-card__value">' + fmt(stats.percentiles['95th']) + '</div></div>';
+    html += '<div class="metric-card metric-card--compact"><div class="metric-card__title">Probability of Loss</div><div class="metric-card__value">' + pct(stats.probability_of_loss) + '</div></div>';
+    html += '</div>';
+    html += '<div class="chart-container"><canvas id="mcChart"></canvas></div>';
+    el.innerHTML = html;
+    el.classList.remove('hidden');
+
+    // Draw fan chart from percentile data
+    const days = d.simulations[0].values;
+    const xLabels = days.map((_, i) => i);
+    const median = days.map((_, i) => d.simulations.reduce((sum, s) => sum + s.values[i], 0) / d.simulations.length);
+    const p5 = days.map((_, i) => {
+        const vals = d.simulations.map(s => s.values[i]).sort((a, b) => a - b);
+        return vals[Math.floor(vals.length * 0.05)];
+    });
+    const p95 = days.map((_, i) => {
+        const vals = d.simulations.map(s => s.values[i]).sort((a, b) => a - b);
+        return vals[Math.floor(vals.length * 0.95)];
+    });
+
+    new Chart(document.getElementById('mcChart'), {
+        type: 'line',
+        data: {
+            labels: xLabels,
+            datasets: [
+                { label: '95th Percentile', data: p95, borderColor: 'rgba(76,175,80,0.4)', backgroundColor: 'rgba(76,175,80,0.08)', fill: '+1', pointRadius: 0 },
+                { label: 'Median', data: median, borderColor: '#4caf50', borderWidth: 2, pointRadius: 0 },
+                { label: '5th Percentile', data: p5, borderColor: 'rgba(244,67,54,0.4)', backgroundColor: 'rgba(244,67,54,0.08)', fill: '-1', pointRadius: 0 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 16 } } },
+            scales: {
+                x: { display: false },
+                y: { ticks: { callback: v => '$' + (v / 1000).toFixed(0) + 'k' } }
+            }
+        }
+    });
+}
+
+function setBtnLoading(btn, on) {
+    btn.classList.toggle('btn--loading', on);
+    btn.disabled = on;
+}
+
+const MAX_COMPARE = 6;
+let selectedStrategies = new Set();
+
+function setupStrategyPicker() {
+    const picker = document.getElementById('strategyPicker');
+    if (!picker || !strategies.length) return;
+    let html = '<p class="strategy-picker__max">Select up to ' + MAX_COMPARE + ' strategies</p>';
+    strategies.forEach(s => {
+        html += '<label class="strategy-picker__item">' +
+            '<input type="checkbox" value="' + s.id + '" data-name="' + s.name + '">' +
+            '<span class="strategy-picker__name">' + s.name + '</span></label>';
+    });
+    picker.innerHTML = html;
+    picker.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', onStrategyPickerChange);
+    });
+}
+
+function onStrategyPickerChange() {
+    const picker = document.getElementById('strategyPicker');
+    const cbs = picker.querySelectorAll('input[type="checkbox"]');
+    const btn = document.getElementById('compareSelectedBtn');
+    selectedStrategies.clear();
+    cbs.forEach(cb => {
+        if (cb.checked) selectedStrategies.add(cb.value);
+    });
+    btn.textContent = 'Compare Selected (' + selectedStrategies.size + ')';
+    btn.disabled = selectedStrategies.size < 2;
+}
+
+function runCompareSelected() {
+    if (selectedStrategies.size < 2) return;
+    try {
+        abortPrevious();
+        const { symbols, numDays, initialCapital } = getParams();
+        if (!symbols.length) { showMsg('Load symbols first', 'warning'); return; }
+        if (!dataLoaded) { showMsg('Wait for data to load', 'error'); return; }
+
+        const { symbols: syms } = getParams();
+        const ew = (1 / syms.length).toFixed(2);
+        const ao = {}; syms.forEach(s => { ao[s] = parseFloat(ew); });
+        const aj = JSON.stringify(ao);
+
+        const strats = [];
+        selectedStrategies.forEach(id => {
+            const s = strategies.find(x => x.id === id);
+            if (!s) return;
+            const params = {};
+            s.params.forEach(p => {
+                if (p.name === 'allocation_json') params.allocation_json = aj;
+                else if (p.name === 'symbol') params.symbol = syms[0] || '';
+                else params[p.name] = p.value;
+            });
+            strats.push({ strategy_id: id, name: s.name, params });
+        });
+
+        showMsg('Comparing ' + strats.length + ' strategies...', 'loading');
+        setBtnLoading(document.getElementById('compareSelectedBtn'), true);
+
+        fetchAbort('/api/compare', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ use_real_data: true, symbols, strategies: strats, initial_capital: initialCapital, num_days: numDays })
+        }).then(r => r.json()).then(d => {
+            if (d.success) { displayComparison(d); saveResults(); showMsg('Comparison completed', 'success'); }
+            else showMsg('Error: ' + d.error, 'error');
+        }).catch(e => { if (e.name !== 'AbortError') showMsg('Error: ' + e.message, 'error'); })
+          .finally(() => setBtnLoading(document.getElementById('compareSelectedBtn'), false));
+    } catch (e) { if (e.name !== 'AbortError') showMsg('Error: ' + e.message, 'error'); }
 }
 
 // ============================================================================
@@ -192,7 +495,7 @@ function onStrategyChange() {
         if (p.name === 'allocation_json' && isAlloc) {
             html += renderAllocationBuilder(p);
         } else {
-            let v = p.value;
+            let v = savedStrategyParams[p.name] || p.value;
             if (p.name === 'symbol') {
                 if (selectedSymbols.length) v = selectedSymbols[0].symbol;
                 else if (currentSymbols.length) v = currentSymbols[0];
@@ -202,6 +505,11 @@ function onStrategyChange() {
         }
     }
     strategyParams.innerHTML = html;
+    document.querySelectorAll('.param-input').forEach(input => {
+        input.addEventListener('change', () => {
+            savedStrategyParams[input.name] = input.value;
+        });
+    });
     if (isAlloc) setupAllocation(selectedSymbols.length ? selectedSymbols : currentSymbols);
 }
 
@@ -222,16 +530,31 @@ function setupAllocation(symbolsOverride) {
     }
     const syms = raw.map(s => typeof s === 'string' ? s : s.symbol);
     const n = syms.length;
-    const base = Math.floor(100 / n), rem = 100 % n;
+    const existingAlloc = { ...currentAllocations };
+    const existingTotal = Object.values(existingAlloc).reduce((sum, v) => sum + v, 0);
+    const hasExisting = Object.keys(existingAlloc).length > 0 && Math.abs(existingTotal - 100) < 1;
     let html = '';
-    syms.forEach((ticker, i) => {
-        const pct = base + (i < rem ? 1 : 0);
+    syms.forEach((ticker) => {
+        let pct;
+        if (hasExisting && existingAlloc[ticker] !== undefined) {
+            pct = Math.round(existingAlloc[ticker] * 100);
+        } else if (hasExisting) {
+            pct = 0;
+        } else {
+            pct = Math.floor(100 / n);
+        }
         html += '<div class="alloc-row"><span class="alloc-sym">' + ticker + '</span>' +
                 '<input type="range" class="alloc-slider" min="0" max="100" value="' + pct + '" data-symbol="' + ticker + '">' +
                 '<span class="alloc-val">' + pct + '%</span></div>';
     });
     document.getElementById('allocSliders').innerHTML = html;
     document.querySelectorAll('.alloc-slider').forEach(sl => sl.addEventListener('input', updateAlloc));
+    if (!hasExisting) {
+        const base = Math.floor(100 / n), rem = 100 % n;
+        syms.forEach((ticker, i) => {
+            currentAllocations[ticker] = (base + (i < rem ? 1 : 0)) / 100;
+        });
+    }
     updateAlloc();
 }
 
@@ -242,6 +565,7 @@ function updateAlloc() {
         obj[s] = v / 100; total += v;
         sl.closest('.alloc-row').querySelector('.alloc-val').textContent = v + '%';
     });
+    currentAllocations = obj;
     const t = document.getElementById('allocTotal');
     if (t) { t.textContent = total + '%'; t.className = total === 100 ? 'valid' : 'invalid'; }
     const j = document.getElementById('allocJSON');
@@ -309,38 +633,6 @@ async function runBacktest() {
     finally { setBtnLoading(backtestBtn, false); }
 }
 
-async function runQuickCompare() {
-    try {
-        abortPrevious();
-        const { symbols, numDays, initialCapital } = getParams();
-        if (!symbols.length) { showMsg('Load symbols first', 'warning'); return; }
-        if (!dataLoaded) { showMsg('Wait for data to load', 'error'); return; }
-
-        const ew = (1 / symbols.length).toFixed(2);
-        const ao = {}; symbols.forEach(s => { ao[s] = parseFloat(ew); });
-        const aj = JSON.stringify(ao);
-
-        const strats = [
-            { strategy_id: 'buy_hold_single', name: 'Buy & Hold (' + symbols[0] + ')', params: { symbol: symbols[0] } },
-            { strategy_id: 'balanced', name: 'Balanced (' + symbols.slice(0, 2).join('/') + ')', params: { allocation_json: aj } },
-            { strategy_id: 'momentum', name: 'Momentum', params: { short_window: '20', long_window: '50' } },
-            { strategy_id: 'rebalance', name: 'Rebalancing (' + symbols.slice(0, 2).join('/') + ')', params: { allocation_json: aj, frequency: '63' } }
-        ];
-
-        showMsg('Comparing 4 strategies...', 'loading');
-        setBtnLoading(quickCompareBtn, true);
-
-        const r = await fetchAbort('/api/compare', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ use_real_data: true, symbols, strategies: strats, initial_capital: initialCapital, num_days: numDays })
-        });
-        const d = await r.json();
-        if (d.success) { displayComparison(d); saveResults(); showMsg('Comparison completed', 'success'); }
-        else showMsg('Error: ' + d.error, 'error');
-    } catch (e) { if (e.name !== 'AbortError') showMsg('Error: ' + e.message, 'error'); }
-    finally { setBtnLoading(quickCompareBtn, false); }
-}
-
 function setBtnLoading(btn, on) {
     btn.classList.toggle('btn--loading', on);
     btn.disabled = on;
@@ -367,7 +659,18 @@ function displaySingle(r) {
     document.getElementById('period').textContent = r.start_date + ' to ' + r.end_date;
 
     drawEquity(r.snapshots);
+
+    const exportTradesBtn = document.getElementById('exportTradesBtn');
+    if (r.trades?.length) {
+        exportTradesBtn.classList.remove('hidden');
+        displayTradeLog(r.trades);
+    } else {
+        exportTradesBtn.classList.add('hidden');
+        document.getElementById('tradeLogSection').classList.add('hidden');
+    }
+
     singleResults.classList.remove('hidden');
+    syncToURL();
 }
 
 function displayComparison(d) {
@@ -386,6 +689,114 @@ function displayComparison(d) {
             '<td>' + r.annual + '%</td><td>' + r.max_dd + '%</td><td>' + r.sharpe.toFixed(2) + '</td>';
     });
     comparisonResults.classList.remove('hidden');
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
+
+function exportCSV() {
+    if (!currentResult) return;
+    const r = currentResult;
+    const lines = [];
+    lines.push('Portfolio Backtest Results');
+    lines.push('Strategy,' + csvEscape(r.strategy_name));
+    lines.push('Start Date,' + r.start_date);
+    lines.push('End Date,' + r.end_date);
+    lines.push('Initial Capital,' + r.initial_capital);
+    lines.push('Final Value,' + r.final_value);
+    lines.push('Total Return %,' + r.total_return);
+    lines.push('Annual Return %,' + r.annual_return);
+    lines.push('Max Drawdown %,' + r.max_drawdown);
+    lines.push('Sharpe Ratio,' + r.sharpe_ratio);
+    lines.push('');
+    lines.push('Date,Value,Return %');
+    r.snapshots.forEach(s => {
+        lines.push(s.date + ',' + s.value + ',' + s.returns);
+    });
+    downloadCSV(lines.join('\n'), 'backtest-' + r.strategy_name.replace(/[^a-z0-9]/gi, '_') + '.csv');
+}
+
+function exportTrades() {
+    if (!currentResult?.trades?.length) return;
+    const r = currentResult;
+    const lines = ['Date,Action,Symbol,Quantity,Price,Value'];
+    r.trades.forEach(t => {
+        lines.push(t.date + ',' + t.action + ',' + t.symbol + ',' + t.quantity + ',' + t.price + ',' + t.value);
+    });
+    downloadCSV(lines.join('\n'), 'trades-' + r.strategy_name.replace(/[^a-z0-9]/gi, '_') + '.csv');
+}
+
+function displayTradeLog(trades) {
+    const section = document.getElementById('tradeLogSection');
+    const tbody = document.getElementById('tradeLogBody');
+    const count = document.getElementById('tradeCount');
+    if (!trades?.length) {
+        section.classList.add('hidden');
+        return;
+    }
+    tbody.innerHTML = '';
+    trades.forEach(t => {
+        const row = tbody.insertRow();
+        const actionClass = t.action === 'BUY' ? 'trade-buy' : 'trade-sell';
+        row.innerHTML = '<td>' + t.date + '</td><td class="' + actionClass + '">' + t.action + '</td><td>' + t.symbol + '</td><td>' + fmt(t.quantity) + '</td><td>$' + fmt(t.price) + '</td><td>$' + fmt(t.value) + '</td>';
+    });
+    count.textContent = trades.length + ' trade' + (trades.length !== 1 ? 's' : '');
+    section.classList.remove('hidden');
+}
+
+function csvEscape(val) {
+    const s = String(val);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+}
+
+function downloadCSV(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ============================================================================
+// PDF EXPORT
+// ============================================================================
+
+function exportPDF() {
+    const resultsEl = document.getElementById('singleResults');
+    if (!resultsEl || resultsEl.classList.contains('hidden')) { showMsg('Run a backtest first', 'warning'); return; }
+
+    showMsg('Generating PDF...', 'loading');
+    setBtnLoading(document.getElementById('exportPdfBtn'), true);
+
+    html2canvas(resultsEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }).then(canvas => {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pageW = pdf.internal.pageSize.getWidth();
+        const margin = 15;
+        const contentW = pageW - margin * 2;
+        const imgH = (canvas.height * contentW) / canvas.width;
+
+        const imgData = canvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', margin, margin, contentW, imgH);
+        pdf.save('portfoliolab-backtest.pdf');
+        showMsg('PDF exported', 'success');
+    }).catch(e => showMsg('PDF error: ' + e.message, 'error'))
+      .finally(() => setBtnLoading(document.getElementById('exportPdfBtn'), false));
+}
+
+// ============================================================================
+// BENCHMARK
+// ============================================================================
+
+function toggleBenchmark() {
+    if (!currentResult?.snapshots?.length) return;
+    drawEquity(currentResult.snapshots);
 }
 
 // ============================================================================
@@ -411,12 +822,40 @@ function drawEquity(snapshots) {
     if (equityChart) equityChart.destroy();
     const c = chartColors();
     const dates = snapshots.map(s => s.date), vals = snapshots.map(s => s.value);
+    const showBenchmark = document.getElementById('benchmarkToggle').checked;
+    const datasets = [{
+        label: 'Portfolio', data: vals, borderColor: c.primary, backgroundColor: c.primaryA,
+        borderWidth: 2, tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 5
+    }];
+
+    if (showBenchmark && currentResult?.benchmark?.snapshots?.length) {
+        const benchDates = currentResult.benchmark.snapshots.map(s => s.date);
+        const benchVals = currentResult.benchmark.snapshots.map(s => s.value);
+        const benchData = dates.map(d => {
+            const idx = benchDates.indexOf(d);
+            return idx >= 0 ? benchVals[idx] : null;
+        });
+        const benchColor = c.primary === '#d0bcff' ? '#f2b8b5' : '#b3261e';
+        datasets.push({
+            label: 'S&P 500', data: benchData, borderColor: benchColor, borderWidth: 2,
+            borderDash: [6, 3], tension: 0.3, fill: false, pointRadius: 0, pointHoverRadius: 4
+        });
+    }
 
     equityChart = new Chart(ctx, {
         type: 'line',
-        data: { labels: dates, datasets: [{ data: vals, borderColor: c.primary, backgroundColor: c.primaryA, borderWidth: 2, tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 5 }] },
-        options: chartOpts(c, dates, v => '$' + fmt(v))
+        data: { labels: dates, datasets: datasets },
+        options: { ...chartOpts(c, dates, v => '$' + fmt(v)), plugins: { ...chartOpts(c, dates, v => '$' + fmt(v)).plugins, legend: { display: showBenchmark && currentResult?.benchmark, position: 'top', labels: { usePointStyle: true, pointStyle: 'line', padding: 12, color: c.text, font: { size: 11 } } } } }
     });
+
+    const benchRow = document.getElementById('benchmarkRow');
+    const benchStats = document.getElementById('benchmarkStats');
+    if (currentResult?.benchmark) {
+        benchRow.style.display = '';
+        benchStats.textContent = 'SPY Return: ' + currentResult.benchmark.total_return + '%';
+    } else {
+        benchRow.style.display = 'none';
+    }
 }
 
 function drawComparison(results) {
@@ -626,6 +1065,7 @@ function addSymbol(ticker, name) {
 
 function removeSymbol(ticker) {
     selectedSymbols = selectedSymbols.filter(s => s.symbol !== ticker);
+    delete currentAllocations[ticker];
     const chip = SYMBOL_CHIPS_EL.querySelector('[data-symbol="' + ticker + '"]');
     if (chip) chip.remove();
     syncHiddenInput();
@@ -811,7 +1251,62 @@ function refreshStrategyParams() {
     const symbolInput = document.getElementById('param-symbol');
     if (symbolInput && selectedSymbols.length) {
         symbolInput.value = selectedSymbols[0].symbol;
+        savedStrategyParams['symbol'] = selectedSymbols[0].symbol;
     }
+}
+
+// ============================================================================
+// URL STATE SYNC
+// ============================================================================
+
+function syncToURL() {
+    const { symbols } = getParams();
+    const strategy = strategySelect.value;
+    if (!symbols.length || !strategy) return;
+
+    const params = new URLSearchParams();
+    params.set('symbols', symbols.join(','));
+    params.set('strategy', strategy);
+
+    // Add strategy-specific params
+    const stratParams = {};
+    const rows = strategyParams.querySelectorAll('.param-row');
+    rows.forEach(row => {
+        const input = row.querySelector('input, select');
+        if (input && input.name) stratParams[input.name] = input.value;
+    });
+    if (Object.keys(stratParams).length) params.set('params', JSON.stringify(stratParams));
+
+    const url = window.location.pathname + '?' + params.toString();
+    window.history.replaceState({}, '', url);
+}
+
+function loadFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('symbols')) return false;
+
+    const symbols = params.get('symbols').split(',').filter(s => s.trim());
+    if (symbols.length) {
+        const input = document.getElementById('symbolInput');
+        symbols.forEach(s => addSymbol(s.trim()));
+    }
+
+    if (params.has('strategy')) {
+        strategySelect.value = params.get('strategy');
+        strategySelect.dispatchEvent(new Event('change'));
+    }
+
+    if (params.has('params')) {
+        try {
+            const stratParams = JSON.parse(params.get('params'));
+            Object.entries(stratParams).forEach(([name, value]) => {
+                const input = strategyParams.querySelector('[name="' + name + '"]');
+                if (input) input.value = value;
+            });
+        } catch (e) {}
+    }
+
+    return true;
 }
 
 // ============================================================================
@@ -874,6 +1369,8 @@ function setupPresets() {
         btn.addEventListener('click', () => {
             const t = PRESETS[btn.dataset.preset];
             if (!t) return;
+            currentAllocations = {};
+            savedStrategyParams = {};
             setSymbols(t.symbols, true);
             strategySelect.value = 'balanced';
             strategySelect.dispatchEvent(new Event('change'));
@@ -899,7 +1396,9 @@ function saveConfig() {
         name, symbols: document.getElementById('symbols').value,
         startDate: document.getElementById('startDate').value, endDate: document.getElementById('endDate').value,
         initialCapital: document.getElementById('initialCapital').value, strategy: strategySelect.value,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        allocations: { ...currentAllocations },
+        strategyParams: { ...savedStrategyParams }
     };
     const aj = document.getElementById('allocJSON');
     if (aj) cfg.allocation = aj.value;
@@ -931,6 +1430,8 @@ function loadConfig() {
     document.getElementById('startDate').value = cfg.startDate || '';
     document.getElementById('endDate').value = cfg.endDate || '';
     document.getElementById('initialCapital').value = cfg.initialCapital;
+    if (cfg.allocations) currentAllocations = { ...cfg.allocations };
+    if (cfg.strategyParams) savedStrategyParams = { ...cfg.strategyParams };
     strategySelect.value = cfg.strategy;
     strategySelect.dispatchEvent(new Event('change'));
     setTimeout(() => {
