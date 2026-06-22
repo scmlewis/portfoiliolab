@@ -38,6 +38,7 @@ async function init() {
     setupTooltips();
     setupStrategyPicker();
     setupOnboarding();
+    setupMobileFab();
     restoreDarkMode();
     restoreResults();
     const fromURL = loadFromURL();
@@ -205,19 +206,46 @@ const TOOLTIP_DEFS = {
 let activeTooltip = null;
 
 function setupTooltips() {
-    document.addEventListener('mouseover', (e) => {
-        const trigger = e.target.closest('.tooltip-trigger');
-        if (!trigger) return;
-        const key = trigger.dataset.tooltip;
-        const def = TOOLTIP_DEFS[key];
-        if (!def) return;
-        showTooltip(trigger, def);
-    });
-    document.addEventListener('mouseout', (e) => {
-        const trigger = e.target.closest('.tooltip-trigger');
-        if (!trigger) return;
-        hideTooltip();
-    });
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    if (isTouch) {
+        // Tap-to-toggle on touch devices
+        document.addEventListener('click', (e) => {
+            const trigger = e.target.closest('.tooltip-trigger');
+            if (trigger) {
+                e.preventDefault();
+                e.stopPropagation();
+                const key = trigger.dataset.tooltip;
+                const def = TOOLTIP_DEFS[key];
+                if (!def) return;
+                if (activeTooltip && activeTooltip.parentElement === trigger) {
+                    hideTooltip();
+                } else {
+                    showTooltip(trigger, def);
+                }
+                return;
+            }
+            // Tap outside dismisses
+            if (activeTooltip && !e.target.closest('.tooltip')) {
+                hideTooltip();
+            }
+        });
+    } else {
+        // Hover on desktop
+        document.addEventListener('mouseover', (e) => {
+            const trigger = e.target.closest('.tooltip-trigger');
+            if (!trigger) return;
+            const key = trigger.dataset.tooltip;
+            const def = TOOLTIP_DEFS[key];
+            if (!def) return;
+            showTooltip(trigger, def);
+        });
+        document.addEventListener('mouseout', (e) => {
+            const trigger = e.target.closest('.tooltip-trigger');
+            if (!trigger) return;
+            hideTooltip();
+        });
+    }
 }
 
 // ============================================================================
@@ -268,6 +296,32 @@ function onboardingNext() {
 function onboardingClose() {
     document.getElementById('onboardingOverlay').classList.add('hidden');
     localStorage.setItem('portfoliolab_onboarded', '1');
+}
+
+// ============================================================================
+// MOBILE FAB
+// ============================================================================
+
+function setupMobileFab() {
+    const fab = document.getElementById('mobileFab');
+    if (!fab) return;
+
+    fab.addEventListener('click', () => runBacktest());
+
+    // Show/hide based on scroll position
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                fab.classList.add('hidden');
+            } else {
+                fab.classList.remove('hidden');
+            }
+        });
+    }, { threshold: 0 });
+
+    // Observe the desktop backtest button
+    const backtestBtn = document.getElementById('backtestBtn');
+    if (backtestBtn) observer.observe(backtestBtn);
 }
 
 function showTooltip(trigger, def) {

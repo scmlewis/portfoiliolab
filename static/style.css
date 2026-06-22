@@ -988,11 +988,143 @@ html.dark .modal-overlay { background: rgba(0, 0, 0, 0.7); }
 @media (max-width: 767px) {
     html, body { overflow: auto; height: auto; }
     .app { height: auto; min-height: 100vh; min-height: 100dvh; }
-    .main { overflow: visible; }
-    .grid { grid-template-columns: 1fr; height: auto; }
+    .main { overflow: visible; padding: 12px; }
+    .grid { grid-template-columns: 1fr; height: auto; gap: 12px; }
     .panel { overflow: visible; }
-    .presets { grid-template-columns: 1fr; }
-    .chart-box { height: 220px; }
+
+    /* Header compact */
+    .header { padding: 12px 16px calc(12px + env(safe-area-inset-top, 0px)); }
+    .header__title { font-size: 1.125rem; }
+    .header__sub { display: none; }
+    .icon-btn { width: 44px; height: 44px; }
+
+    /* Prevent iOS zoom on input focus */
+    input, select, textarea { font-size: 16px !important; }
+    .text-input { font-size: 16px !important; padding: 12px 14px; }
+    .text-input--sm { font-size: 16px !important; padding: 10px 12px; }
+    .symbol-input__field { font-size: 16px !important; }
+
+    /* Presets */
+    .presets { grid-template-columns: 1fr 1fr; gap: 6px; }
+    .preset-btn { padding: 8px 6px; font-size: 0.75rem; min-height: 36px; }
+
+    /* Metric cards */
+    .metrics { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .metric-card { padding: 10px; }
     .metric-card__value { font-size: 1.125rem; }
-    .btn-row { flex-direction: column; }
+    .metric-card__label { font-size: 0.625rem; }
+
+    /* Tooltip triggers larger for touch */
+    .tooltip-trigger {
+        width: 28px; height: 28px; min-width: 28px;
+        font-size: 0.75rem; top: -2px;
+    }
+    .tooltip {
+        position: fixed; bottom: auto; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: calc(100vw - 48px); max-width: 300px;
+        z-index: 9999;
+    }
+    .tooltip::after { display: none; }
+
+    /* Charts */
+    .chart-box { height: 200px; padding: 8px; }
+    .chart-box canvas { width: 100% !important; height: 100% !important; }
+
+    /* Export buttons */
+    .export-row { flex-direction: column; gap: 6px; }
+    .export-row .btn { width: 100%; min-height: 44px; }
+
+    /* Benchmark row */
+    .benchmark-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+
+    /* Tables */
+    .table { font-size: 0.75rem; }
+    .table th { padding: 8px 10px; position: sticky; top: 0; z-index: 2; }
+    .table td { padding: 8px 10px; }
+    .table-wrap { max-height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Buttons */
+    .btn { min-height: 44px; font-size: 0.9375rem; }
+    .btn--sm { min-height: 36px; font-size: 0.8125rem; }
+    .btn-row { flex-direction: column; gap: 6px; }
+
+    /* Strategy picker */
+    .strategy-picker { max-height: 160px; }
+
+    /* Footer */
+    .footer {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Detail card */
+    .detail-card { padding: 10px 12px; }
+    .detail-row { font-size: 0.8125rem; padding: 5px 0; }
+
+    /* Chips */
+    .chips { gap: 6px; }
+    .chip { padding: 4px 10px; font-size: 0.75rem; }
+
+    /* Config row */
+    .config-row { flex-direction: column; gap: 6px; }
+
+    /* Autocomplete full width */
+    .autocomplete { max-height: 240px; }
+
+    /* Radio rows */
+    .radio-row { gap: 12px; }
+    .radio-label { font-size: 0.8125rem; }
+
+    /* Sub cards */
+    .sub-card { padding: 12px 0; }
+    .sub-card__desc { font-size: 0.6875rem; }
+
+    /* Onboarding */
+    .onboarding__card { padding: 24px; width: 92%; }
+    .onboarding__title { font-size: 1.125rem; }
+    .onboarding__desc { font-size: 0.875rem; }
 }
+
+/* === MOBILE FAB === */
+.fab {
+    display: none;
+    position: fixed;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    right: 20px;
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    border: none;
+    background: var(--primary);
+    color: var(--on-primary);
+    box-shadow: var(--elevation-2);
+    cursor: pointer;
+    z-index: 500;
+    align-items: center; justify-content: center;
+    transition: all 200ms var(--ease);
+    animation: fabIn 200ms var(--ease);
+}
+.fab:active { transform: scale(0.92); }
+.fab .material-symbols-rounded { font-size: 28px; }
+.fab.hidden { display: none !important; }
+@keyframes fabIn { from { opacity: 0; transform: scale(0.8) translateY(12px); } }
+@media (max-width: 767px) {
+    .fab { display: flex; }
+}
+
+/* === MOBILE: 1-column metrics on tiny screens === */
+@media (max-width: 400px) {
+    .metrics { grid-template-columns: 1fr; }
+    .presets { grid-template-columns: 1fr; }
+}
+
+/* === MOBILE: Tooltip tap-to-toggle state === */
+.tooltip--visible {
+    display: block !important;
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) !important;
+}
+.tooltip-backdrop {
+    display: none;
+    position: fixed; inset: 0; z-index: 9998;
+}
+.tooltip-backdrop.active { display: block; }
