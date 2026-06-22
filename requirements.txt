@@ -1,5 +1,5 @@
 # Core backtester dependencies
-yfinance>=0.2.18          # Yahoo Finance data
+yfinance>=0.2.18,<1.0        # Yahoo Finance data (avoid curl_cffi deps)
 flask>=2.3.0              # Web framework
 flask-cors>=4.0.0         # CORS support
 gunicorn>=21.2.0          # Production WSGI server for Render
