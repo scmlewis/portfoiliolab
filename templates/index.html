@@ -22,22 +22,42 @@
 <body>
     <div class="app">
 
-        <!-- Header -->
-        <header class="header">
-            <div class="header__row">
-                <span class="material-symbols-rounded header__icon">trending_up</span>
-                <div class="header__text">
-                    <h1 class="header__title">PortfolioLab</h1>
-                    <p class="header__sub">Backtest strategies &bull; Optimize portfolios &bull; Real data</p>
-                </div>
-                <button id="helpBtn" class="icon-btn" aria-label="Help" title="Help & Guide">
-                    <span class="material-symbols-rounded">help</span>
-                </button>
-                <button id="darkModeToggle" class="icon-btn" aria-label="Toggle dark mode">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-                </button>
+        <!-- Floating Glass Nav -->
+        <nav class="nav" id="mainNav">
+          <div class="nav__inner">
+            <div class="nav__brand">
+              <svg class="nav__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="nav__title">PortfolioLab</span>
             </div>
-        </header>
+            <div class="nav__links" id="navLinks">
+              <a href="#" class="nav__link" data-section="strategies">Strategies</a>
+              <a href="#" class="nav__link" data-section="help">Help</a>
+              <button id="darkModeToggle" class="nav__link nav__link--icon" aria-label="Toggle dark mode">
+                <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+                <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none">
+                  <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+                </svg>
+              </button>
+            </div>
+            <button class="nav__hamburger" id="navHamburger" aria-label="Toggle menu">
+              <span class="nav__hamburger-line"></span>
+              <span class="nav__hamburger-line"></span>
+            </button>
+          </div>
+        </nav>
+
+        <!-- Mobile Menu Overlay -->
+        <div class="nav-overlay hidden" id="navOverlay">
+          <div class="nav-overlay__content">
+            <a href="#" class="nav-overlay__link" data-section="strategies">Strategies</a>
+            <a href="#" class="nav-overlay__link" data-section="help">Help</a>
+            <button id="darkModeToggleMobile" class="nav-overlay__link" aria-label="Toggle dark mode">Toggle Theme</button>
+          </div>
+        </div>
 
         <!-- Main Content -->
         <main class="main">

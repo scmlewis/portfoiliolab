@@ -12,6 +12,7 @@ let activeAbortControllers = [];
 let dataLoaded = false;
 let currentAllocations = {};
 let savedStrategyParams = {};
+let fabIntersectionObserver = null;
 
 // DOM
 const backtestBtn = document.getElementById('backtestBtn');
@@ -25,6 +26,7 @@ const optimizeBtn = document.getElementById('optimizeBtn');
 const frontierBtn = document.getElementById('frontierBtn');
 
 document.addEventListener('DOMContentLoaded', init);
+window.addEventListener('beforeunload', cleanupMobileFab);
 
 async function init() {
     await loadStrategies();
@@ -175,10 +177,14 @@ async function loadRealData() {
 
 function setupHelp() {
     const modal = document.getElementById('helpModal');
-    const helpBtn = document.getElementById('helpBtn');
     const closeBtn = document.getElementById('helpCloseBtn');
 
-    helpBtn.addEventListener('click', () => modal.classList.remove('hidden'));
+    function openHelp() { modal.classList.remove('hidden'); }
+
+    document.querySelectorAll('[data-section="help"]').forEach(el => {
+        el.addEventListener('click', (e) => { e.preventDefault(); openHelp(); });
+    });
+
     closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
     modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.add('hidden');
@@ -206,7 +212,10 @@ const TOOLTIP_DEFS = {
 let activeTooltip = null;
 
 function setupTooltips() {
-    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    // Use pointer: coarse to detect touch-primary devices (excludes hybrid touchscreen laptops with mouse)
+    // Note: 'ontouchstart' in window || navigator.maxTouchPoints > 0 would match hybrid devices
+    // (Surface Pro, MacBook Touch Bar), disabling hover tooltips even when using a mouse.
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
     if (isTouch) {
         // Tap-to-toggle on touch devices
@@ -309,19 +318,28 @@ function setupMobileFab() {
     fab.addEventListener('click', () => runBacktest());
 
     // Show/hide based on scroll position
-    const observer = new IntersectionObserver((entries) => {
+    fabIntersectionObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 fab.classList.add('hidden');
+                fab.classList.remove('fab--visible');
             } else {
                 fab.classList.remove('hidden');
+                fab.classList.add('fab--visible');
             }
         });
     }, { threshold: 0 });
 
     // Observe the desktop backtest button
     const backtestBtn = document.getElementById('backtestBtn');
-    if (backtestBtn) observer.observe(backtestBtn);
+    if (backtestBtn) fabIntersectionObserver.observe(backtestBtn);
+}
+
+function cleanupMobileFab() {
+    if (fabIntersectionObserver) {
+        fabIntersectionObserver.disconnect();
+        fabIntersectionObserver = null;
+    }
 }
 
 function showTooltip(trigger, def) {
@@ -674,7 +692,7 @@ async function runBacktest() {
 
         const { symbols, numDays, initialCapital } = getParams();
         showMsg('Running backtest...', 'loading');
-        setBtnLoading(backtestBtn, true);
+        if (backtestBtn) setBtnLoading(backtestBtn, true);
 
         const r = await fetchAbort('/api/backtest', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -684,7 +702,7 @@ async function runBacktest() {
         if (d.success) { currentResult = d.result; displaySingle(d.result); saveResults(); showMsg('Backtest completed', 'success'); }
         else showMsg('Error: ' + d.error, 'error');
     } catch (e) { if (e.name !== 'AbortError') showMsg('Error: ' + e.message, 'error'); }
-    finally { setBtnLoading(backtestBtn, false); }
+    finally { if (backtestBtn) setBtnLoading(backtestBtn, false); }
 }
 
 function setBtnLoading(btn, on) {
@@ -1392,9 +1410,14 @@ function restoreDarkMode() {
 }
 
 function updateDarkIcon(dark) {
-    document.getElementById('darkModeToggle').innerHTML = dark
-        ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
-        : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
+    const toggle = document.getElementById('darkModeToggle');
+    if (!toggle) return;
+    const sun = toggle.querySelector('.icon-sun');
+    const moon = toggle.querySelector('.icon-moon');
+    if (sun && moon) {
+        sun.style.display = dark ? 'none' : 'block';
+        moon.style.display = dark ? 'block' : 'none';
+    }
 }
 
 // ============================================================================
@@ -1516,4 +1539,35 @@ function restoreResults() {
         const s = localStorage.getItem('lastBacktestResult');
         if (s) { const r = JSON.parse(s); if (r?.snapshots) { currentResult = r; displaySingle(r); } }
     } catch (e) {}
+}
+
+// Mobile nav toggle
+const navHamburger = document.getElementById('navHamburger');
+const navOverlay = document.getElementById('navOverlay');
+
+if (navHamburger && navOverlay) {
+  navHamburger.addEventListener('click', () => {
+    navHamburger.classList.toggle('active');
+    navOverlay.classList.toggle('hidden');
+    document.body.style.overflow = navOverlay.classList.contains('hidden') ? '' : 'hidden';
+  });
+
+  navOverlay.querySelectorAll('.nav-overlay__link').forEach(link => {
+    link.addEventListener('click', () => {
+      navHamburger.classList.remove('active');
+      navOverlay.classList.add('hidden');
+      document.body.style.overflow = '';
+    });
+  });
+}
+
+// Mobile dark mode toggle
+const darkModeToggleMobile = document.getElementById('darkModeToggleMobile');
+if (darkModeToggleMobile) {
+  darkModeToggleMobile.addEventListener('click', () => {
+    toggleDarkMode();
+    navHamburger.classList.remove('active');
+    navOverlay.classList.add('hidden');
+    document.body.style.overflow = '';
+  });
 }
