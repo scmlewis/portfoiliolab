@@ -222,6 +222,77 @@ a:hover { text-decoration: underline; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
+/* === DOUBLE-BEZEL CARDS === */
+.card-outer {
+  background: var(--surface-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-lg);
+  transition: all var(--duration-normal) var(--ease-out-expo);
+}
+
+.card-inner {
+  background: var(--surface);
+  border-radius: calc(var(--radius-2xl) - 6px);
+  box-shadow: var(--shadow-inner);
+  padding: var(--space-xl);
+}
+
+/* === SECTIONS === */
+.section {
+  margin-bottom: var(--space-xl);
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.section__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.section__title {
+  font-size: var(--text-body);
+  font-weight: 600;
+  line-height: var(--leading-body);
+}
+
+.section__desc {
+  font-size: var(--text-caption);
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.section__body {
+  padding-left: 0;
+}
+
+/* === EYEBROW TAGS === */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 var(--space-sm);
+  background: var(--primary);
+  color: white;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.eyebrow--outline {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border-strong);
+}
+
 /* === FLOATING GLASS NAV === */
 .nav {
   position: fixed;
