@@ -61,7 +61,6 @@ async function init() {
     setupStrategyPicker();
     setupOnboarding();
     setupMobileFab();
-    restoreDarkMode();
     restoreResults();
     const fromURL = loadFromURL();
     autoLoadData();
@@ -77,8 +76,6 @@ function setupEventListeners() {
     strategySelect.addEventListener('change', onStrategyChange);
     optimizeBtn.addEventListener('click', runOptimization);
     frontierBtn.addEventListener('click', runFrontier);
-
-    document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
 
     document.getElementById('monteCarloBtn').addEventListener('click', runMonteCarlo);
     document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
@@ -1406,9 +1403,16 @@ function loadFromURL() {
 // ============================================================================
 
 function toggleDarkMode() {
-    const dark = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('darkMode', dark);
-    updateDarkIcon(dark);
+    const html = document.documentElement;
+    const dark = html.classList.toggle('dark');
+    localStorage.setItem('portfoliolab_theme', dark ? 'dark' : 'light');
+    const toggle = document.getElementById('darkModeToggle');
+    if (toggle) {
+        const sun = toggle.querySelector('.icon-sun');
+        const moon = toggle.querySelector('.icon-moon');
+        if (sun) sun.style.display = dark ? 'none' : 'block';
+        if (moon) moon.style.display = dark ? 'block' : 'none';
+    }
     if (equityChart) drawEquity(currentResult?.snapshots || []);
     if (comparisonChart) {
         const ld = comparisonChart.data;
@@ -1423,22 +1427,40 @@ function toggleDarkMode() {
     }
 }
 
-function restoreDarkMode() {
-    const dark = localStorage.getItem('darkMode') === 'true';
-    document.documentElement.classList.toggle('dark', dark);
-    updateDarkIcon(dark);
+// Dark mode toggle
+function initDarkMode() {
+  const toggle = document.getElementById('darkModeToggle');
+  const toggleMobile = document.getElementById('darkModeToggleMobile');
+  const html = document.documentElement;
+  const iconSun = toggle?.querySelector('.icon-sun');
+  const iconMoon = toggle?.querySelector('.icon-moon');
+
+  // Check for saved preference or system preference
+  const savedTheme = localStorage.getItem('portfoliolab_theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+    html.classList.add('dark');
+    updateIcons(true);
+  }
+
+  function toggleDark() {
+    html.classList.toggle('dark');
+    const isDark = html.classList.contains('dark');
+    localStorage.setItem('portfoliolab_theme', isDark ? 'dark' : 'light');
+    updateIcons(isDark);
+  }
+
+  function updateIcons(isDark) {
+    if (iconSun) iconSun.style.display = isDark ? 'none' : 'block';
+    if (iconMoon) iconMoon.style.display = isDark ? 'block' : 'none';
+  }
+
+  toggle?.addEventListener('click', toggleDark);
+  toggleMobile?.addEventListener('click', toggleDark);
 }
 
-function updateDarkIcon(dark) {
-    const toggle = document.getElementById('darkModeToggle');
-    if (!toggle) return;
-    const sun = toggle.querySelector('.icon-sun');
-    const moon = toggle.querySelector('.icon-moon');
-    if (sun && moon) {
-        sun.style.display = dark ? 'none' : 'block';
-        moon.style.display = dark ? 'block' : 'none';
-    }
-}
+document.addEventListener('DOMContentLoaded', initDarkMode);
 
 // ============================================================================
 // DATE RANGE
@@ -1581,16 +1603,7 @@ if (navHamburger && navOverlay) {
   });
 }
 
-// Mobile dark mode toggle
-const darkModeToggleMobile = document.getElementById('darkModeToggleMobile');
-if (darkModeToggleMobile) {
-  darkModeToggleMobile.addEventListener('click', () => {
-    toggleDarkMode();
-    navHamburger.classList.remove('active');
-    navOverlay.classList.add('hidden');
-    document.body.style.overflow = '';
-  });
-}
+
 
 // Magnetic button hover effects
 function initMagneticButtons() {
