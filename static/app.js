@@ -1591,3 +1591,33 @@ if (darkModeToggleMobile) {
     document.body.style.overflow = '';
   });
 }
+
+// Magnetic button hover effects
+function initMagneticButtons() {
+  const buttons = document.querySelectorAll('.btn--primary, .btn--lg');
+
+  buttons.forEach(btn => {
+    btn.addEventListener('mouseenter', (e) => {
+      const rect = btn.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+
+      btn.style.transform = `translate(${x * 0.15}px, ${y * 0.15}px)`;
+    });
+
+    btn.addEventListener('mousemove', (e) => {
+      const rect = btn.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+
+      btn.style.transform = `translate(${x * 0.15}px, ${y * 0.15}px)`;
+    });
+
+    btn.addEventListener('mouseleave', () => {
+      btn.style.transform = 'translate(0, 0)';
+    });
+  });
+}
+
+// Initialize magnetic buttons
+document.addEventListener('DOMContentLoaded', initMagneticButtons);
