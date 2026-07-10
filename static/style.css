@@ -131,3 +131,40 @@ html.dark {
   --glass-bg: rgba(255,255,255,0.05);
   --glass-border: rgba(255,255,255,0.08);
 }
+
+/* === BASE === */
+html {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: var(--tracking-h2);
+}
+
+h1 { font-size: var(--text-h1); line-height: var(--leading-h1); letter-spacing: var(--tracking-h1); }
+h2 { font-size: var(--text-h2); line-height: var(--leading-h2); letter-spacing: var(--tracking-h2); }
+h3 { font-size: var(--text-h3); line-height: var(--leading-h3); }
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+::selection {
+  background: var(--primary-container);
+  color: var(--primary);
+}
