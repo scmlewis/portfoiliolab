@@ -130,6 +130,13 @@ html.dark {
 
   --glass-bg: rgba(255,255,255,0.05);
   --glass-border: rgba(255,255,255,0.08);
+
+  /* Stronger surfaces for dark mode inputs */
+  --surface: rgba(255,255,255,0.06);
+  --surface-card: rgba(255,255,255,0.08);
+  --surface-elevated: rgba(255,255,255,0.10);
+  --border: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.18);
 }
 
 /* === BASE === */
@@ -542,6 +549,188 @@ a:hover { text-decoration: underline; }
   cursor: pointer;
 }
 
+/* === PRESET BUTTONS === */
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out-expo);
+  white-space: nowrap;
+}
+
+.preset-btn:hover {
+  background: var(--primary-container);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.preset-btn.active,
+.preset-btn:active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+/* === RADIO & CHECKBOX === */
+.radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.radio-label,
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.radio-label input[type="radio"],
+.checkbox-label input[type="checkbox"] {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out-expo);
+  flex-shrink: 0;
+}
+
+.radio-label input[type="radio"] {
+  border-radius: 50%;
+}
+
+.checkbox-label input[type="checkbox"] {
+  border-radius: var(--radius-sm);
+}
+
+.radio-label input[type="radio"]:checked {
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: inset 0 0 0 3px var(--surface);
+}
+
+.checkbox-label input[type="checkbox"]:checked {
+  border-color: var(--primary);
+  background: var(--primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.radio-label input[type="radio"]:focus-visible,
+.checkbox-label input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* === STRATEGY PICKER (Compare) === */
+.strategy-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.strategy-picker label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out-expo);
+}
+
+.strategy-picker label:hover {
+  border-color: var(--primary);
+  background: var(--primary-container);
+}
+
+.strategy-picker label:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-container);
+  color: var(--primary);
+}
+
+.strategy-picker input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--surface);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--duration-fast) var(--ease-out-expo);
+}
+
+.strategy-picker input[type="checkbox"]:checked {
+  border-color: var(--primary);
+  background: var(--primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* === SUB-CARD === */
+.sub-card {
+  padding: var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  margin-bottom: var(--space-md);
+}
+
+.sub-card:last-child {
+  margin-bottom: 0;
+}
+
+.sub-card__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--space-xs);
+}
+
+.sub-card__title svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.sub-card__desc {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: var(--space-md);
+  line-height: 1.5;
+}
+
 /* === BUTTONS === */
 .btn {
   display: inline-flex;
@@ -629,6 +818,27 @@ a:hover { text-decoration: underline; }
 }
 
 .btn-row .btn { flex: 1; }
+
+.config-row {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.config-row:last-child {
+  margin-bottom: 0;
+}
+
+.config-row .text-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.config-row .btn {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: var(--space-sm) var(--space-lg);
+}
 
 /* === METRIC CARDS === */
 .metrics {
