@@ -406,7 +406,7 @@ function displayMonteCarlo(d) {
     const fmt = v => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v);
     const pct = v => (v * 100).toFixed(1) + '%';
 
-    let html = '<div class="results__header"><h2 class="results__title"><span class="material-symbols-rounded">casino</span> Monte Carlo Simulation</h2></div>';
+    let html = '<div class="results__header"><h2 class="results__title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="3"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="16" cy="8" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg> Monte Carlo Simulation</h2></div>';
     html += '<div class="metric-row">';
     html += '<div class="metric-card metric-card--compact"><div class="metric-card__title">Median Final Value</div><div class="metric-card__value">' + fmt(stats.median) + '</div></div>';
     html += '<div class="metric-card metric-card--compact"><div class="metric-card__title">Mean Final Value</div><div class="metric-card__value">' + fmt(stats.mean) + '</div></div>';
@@ -1132,7 +1132,7 @@ function renderChip(sym) {
     chip.innerHTML = '<span class="symbol-chip__ticker">' + sym.symbol + '</span>' +
         (sym.name ? '<span class="symbol-chip__name">' + sym.name + '</span>' : '') +
         '<button type="button" class="symbol-chip__remove" aria-label="Remove ' + sym.symbol + '">' +
-        '<span class="material-symbols-rounded">close</span></button>';
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
     chip.querySelector('.symbol-chip__remove').addEventListener('click', (e) => {
         e.stopPropagation();
         removeSymbol(sym.symbol);
