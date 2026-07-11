@@ -232,7 +232,7 @@ class TestFormElements:
         assert '.text-input' in css_content
 
     def test_select_input_exists(self, css_content):
-        assert '.select-input' in css_content
+        assert '.custom-select' in css_content
 
     def test_btn_primary_exists(self, css_content):
         assert '.btn--primary' in css_content
@@ -245,8 +245,8 @@ class TestFormElements:
         assert match, ".btn should have min-height (44px touch target)"
 
     def test_select_input_custom_arrow(self, css_content):
-        match = re.search(r'\.select-input\s*\{[^}]*background-image[^}]*\}', css_content, re.DOTALL)
-        assert match, ".select-input should have custom arrow via background-image"
+        match = re.search(r'\.custom-select__trigger\s*\{[^}]*padding-right[^}]*\}', css_content, re.DOTALL)
+        assert match, ".custom-select__trigger should have padding-right for arrow"
 
 
 # ============================================================================

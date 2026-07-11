@@ -161,9 +161,13 @@
                                     </div>
 
                                     <label class="field-label" for="strategySelect">Strategy</label>
-                                    <select id="strategySelect" class="text-input select-input">
+                                    <select id="strategySelect" class="text-input select-input" style="display:none">
                                         <option value="">Choose a strategy...</option>
                                     </select>
+                                    <div class="custom-select" id="strategyCustomSelect">
+                                        <button type="button" class="custom-select__trigger custom-select__trigger--placeholder" id="strategySelectTrigger">Choose a strategy...</button>
+                                        <div class="custom-select__dropdown" id="strategySelectDropdown"></div>
+                                    </div>
 
                                     <div id="strategyParams"></div>
 
@@ -304,9 +308,13 @@
                                             <button type="button" id="saveConfigBtn" class="btn btn--primary btn--sm">Save</button>
                                         </div>
                                         <div class="config-row">
-                                            <select id="savedConfigs" class="text-input text-input--sm select-input">
+                                            <select id="savedConfigs" class="text-input text-input--sm select-input" style="display:none">
                                                 <option value="">-- No saved configs --</option>
                                             </select>
+                                            <div class="custom-select" id="configCustomSelect">
+                                                <button type="button" class="custom-select__trigger custom-select__trigger--placeholder" id="configSelectTrigger">-- No saved configs --</button>
+                                                <div class="custom-select__dropdown" id="configSelectDropdown"></div>
+                                            </div>
                                             <button type="button" id="loadConfigBtn" class="btn btn--primary btn--sm">Load</button>
                                             <button type="button" id="deleteConfigBtn" class="btn btn--error btn--sm">Del</button>
                                         </div>

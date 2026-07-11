@@ -671,6 +671,7 @@ async function loadStrategies() {
         strategies = await r.json();
         strategySelect.innerHTML = '<option value="">Choose a strategy...</option>';
         strategies.forEach(s => { strategySelect.innerHTML += '<option value="' + s.id + '">' + s.name + '</option>'; });
+        buildCustomSelect('strategyCustomSelect', 'strategySelectTrigger', 'strategySelectDropdown', strategySelect);
     } catch (e) { showMsg('Error loading strategies: ' + e, 'error'); }
 }
 
@@ -1537,6 +1538,7 @@ function loadSavedConfigs() {
     const sel = document.getElementById('savedConfigs');
     sel.innerHTML = '<option value="">-- No saved configs --</option>';
     Object.keys(saved).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+    buildCustomSelect('configCustomSelect', 'configSelectTrigger', 'configSelectDropdown', sel);
 }
 
 function loadConfig() {
@@ -1634,3 +1636,57 @@ function initMagneticButtons() {
 
 // Initialize magnetic buttons
 document.addEventListener('DOMContentLoaded', initMagneticButtons);
+
+// ============================================================================
+// CUSTOM SELECT
+// ============================================================================
+
+function buildCustomSelect(containerId, triggerId, dropdownId, nativeSelect) {
+    const container = document.getElementById(containerId);
+    const trigger = document.getElementById(triggerId);
+    const dropdown = document.getElementById(dropdownId);
+    if (!container || !trigger || !dropdown || !nativeSelect) return;
+
+    dropdown.innerHTML = '';
+    const options = nativeSelect.querySelectorAll('option');
+
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'custom-select__option';
+        btn.textContent = opt.textContent;
+        btn.dataset.value = opt.value;
+
+        if (opt.value === nativeSelect.value) {
+            btn.classList.add('custom-select__option--selected');
+            trigger.textContent = opt.textContent;
+            if (!opt.value) trigger.classList.add('custom-select__trigger--placeholder');
+        }
+
+        if (!opt.value) btn.classList.add('custom-select__option--placeholder');
+
+        btn.addEventListener('click', () => {
+            nativeSelect.value = opt.value;
+            trigger.textContent = opt.textContent;
+            trigger.classList.toggle('custom-select__trigger--placeholder', !opt.value);
+            dropdown.querySelectorAll('.custom-select__option').forEach(o => o.classList.remove('custom-select__option--selected'));
+            btn.classList.add('custom-select__option--selected');
+            container.classList.remove('custom-select--open');
+            nativeSelect.dispatchEvent(new Event('change'));
+        });
+
+        dropdown.appendChild(btn);
+    });
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.custom-select--open').forEach(el => {
+            if (el !== container) el.classList.remove('custom-select--open');
+        });
+        container.classList.toggle('custom-select--open');
+    });
+}
+
+document.addEventListener('click', () => {
+    document.querySelectorAll('.custom-select--open').forEach(el => el.classList.remove('custom-select--open'));
+});
