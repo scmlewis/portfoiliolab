@@ -306,6 +306,22 @@ a:hover { text-decoration: underline; }
   margin-bottom: var(--space-lg);
 }
 
+.section__head--toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  padding: 0;
+  margin-bottom: 0;
+  border-radius: 0;
+}
+
+.section__head--toggle:hover {
+  opacity: 0.85;
+}
+
 .section__title {
   font-size: var(--text-body);
   font-weight: 600;
@@ -320,6 +336,21 @@ a:hover { text-decoration: underline; }
 
 .section__body {
   padding-left: 0;
+}
+
+.chevron {
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform var(--duration-normal) var(--ease-out-expo);
+  flex-shrink: 0;
+}
+
+.section--collapsed .chevron {
+  transform: rotate(0deg);
+}
+
+.section--expanded .chevron {
+  transform: rotate(180deg);
 }
 
 /* === EYEBROW TAGS === */
@@ -547,6 +578,15 @@ a:hover { text-decoration: underline; }
   background-position: right 12px center;
   padding-right: 40px;
   cursor: pointer;
+  width: 100%;
+  min-width: 0;
+}
+
+.text-input option,
+.select-input option {
+  white-space: normal;
+  word-wrap: break-word;
+  padding: 8px;
 }
 
 /* === PRESET BUTTONS === */
