@@ -1,0 +1,462 @@
+diff --git a/static/style.css b/static/style.css
+index 2e13e68..e740107 100644
+--- a/static/style.css
++++ b/static/style.css
+@@ -222,6 +222,77 @@ a:hover { text-decoration: underline; }
+ ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+ ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+ 
++/* === DOUBLE-BEZEL CARDS === */
++.card-outer {
++  background: var(--surface-card);
++  backdrop-filter: var(--glass-blur);
++  -webkit-backdrop-filter: var(--glass-blur);
++  border: 1px solid var(--glass-border);
++  border-radius: var(--radius-2xl);
++  padding: var(--space-lg);
++  transition: all var(--duration-normal) var(--ease-out-expo);
++}
++
++.card-inner {
++  background: var(--surface);
++  border-radius: calc(var(--radius-2xl) - 6px);
++  box-shadow: var(--shadow-inner);
++  padding: var(--space-xl);
++}
++
++/* === SECTIONS === */
++.section {
++  margin-bottom: var(--space-xl);
++}
++
++.section:last-child {
++  margin-bottom: 0;
++}
++
++.section__head {
++  display: flex;
++  align-items: center;
++  gap: var(--space-md);
++  margin-bottom: var(--space-lg);
++}
++
++.section__title {
++  font-size: var(--text-body);
++  font-weight: 600;
++  line-height: var(--leading-body);
++}
++
++.section__desc {
++  font-size: var(--text-caption);
++  color: var(--muted);
++  margin-top: 2px;
++}
++
++.section__body {
++  padding-left: 0;
++}
++
++/* === EYEBROW TAGS === */
++.eyebrow {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  min-width: 28px;
++  height: 28px;
++  padding: 0 var(--space-sm);
++  background: var(--primary);
++  color: white;
++  border-radius: var(--radius-full);
++  font-size: 12px;
++  font-weight: 600;
++}
++
++.eyebrow--outline {
++  background: transparent;
++  color: var(--muted);
++  border: 1px solid var(--border-strong);
++}
++
+ /* === FLOATING GLASS NAV === */
+ .nav {
+   position: fixed;
+diff --git a/templates/index.html b/templates/index.html
+index 19a5461..89d228a 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -68,195 +68,207 @@
+ 
+                     <!-- Section 1: Portfolio Setup -->
+                     <section class="section">
+-                        <div class="section__head">
+-                            <span class="badge">1</span>
+-                            <div>
+-                                <h2 class="section__title">Portfolio Setup</h2>
+-                                <p class="section__desc">Choose assets and time period</p>
+-                            </div>
+-                        </div>
+-                        <div class="section__body">
+-
+-                            <label class="field-label">Symbols</label>
+-                            <div class="symbol-input" id="symbolInput">
+-                                <div class="symbol-input__chips" id="symbolChips"></div>
+-                                <div class="symbol-input__row">
+-                                    <input type="text" id="symbolText" class="symbol-input__field"
+-                                           placeholder="Type a ticker or company name..." autocomplete="off">
++                        <div class="card-outer">
++                            <div class="card-inner">
++                                <div class="section__head">
++                                    <span class="eyebrow">1</span>
++                                    <div>
++                                        <h2 class="section__title">Portfolio Setup</h2>
++                                        <p class="section__desc">Choose assets and time period</p>
++                                    </div>
+                                 </div>
+-                                <ul id="symbolsAutocomplete" class="autocomplete hidden"></ul>
+-                            </div>
+-                            <div id="popularSymbols" class="popular-symbols">
+-                                <span class="popular-symbols__label">Popular:</span>
+-                                <div class="popular-symbols__list" id="popularList"></div>
+-                            </div>
+-                            <input type="hidden" id="symbols" name="symbols" value="AAPL, MSFT, GOOGL, BND">
++                                <div class="section__body">
++
++                                    <label class="field-label">Symbols</label>
++                                    <div class="symbol-input" id="symbolInput">
++                                        <div class="symbol-input__chips" id="symbolChips"></div>
++                                        <div class="symbol-input__row">
++                                            <input type="text" id="symbolText" class="symbol-input__field"
++                                                   placeholder="Type a ticker or company name..." autocomplete="off">
++                                        </div>
++                                        <ul id="symbolsAutocomplete" class="autocomplete hidden"></ul>
++                                    </div>
++                                    <div id="popularSymbols" class="popular-symbols">
++                                        <span class="popular-symbols__label">Popular:</span>
++                                        <div class="popular-symbols__list" id="popularList"></div>
++                                    </div>
++                                    <input type="hidden" id="symbols" name="symbols" value="AAPL, MSFT, GOOGL, BND">
++
++                                    <div class="date-row">
++                                        <div class="date-field">
++                                            <label class="field-label" for="startDate">From</label>
++                                            <input type="date" id="startDate" class="text-input">
++                                        </div>
++                                        <div class="date-field">
++                                            <label class="field-label" for="endDate">To</label>
++                                            <input type="date" id="endDate" class="text-input">
++                                        </div>
++                                    </div>
++
++                                    <label class="field-label" for="initialCapital">Initial Capital</label>
++                                    <input type="number" id="initialCapital" class="text-input"
++                                           value="100000" min="1000" step="1000">
++
++                                    <div id="dataStatus" class="data-status data-status--loading">
++                                        <span class="material-symbols-rounded data-status__icon">cloud_queue</span>
++                                        <span id="dataStatusText">Loading data...</span>
++                                    </div>
+ 
+-                            <div class="date-row">
+-                                <div class="date-field">
+-                                    <label class="field-label" for="startDate">From</label>
+-                                    <input type="date" id="startDate" class="text-input">
+-                                </div>
+-                                <div class="date-field">
+-                                    <label class="field-label" for="endDate">To</label>
+-                                    <input type="date" id="endDate" class="text-input">
+                                 </div>
+                             </div>
+-
+-                            <label class="field-label" for="initialCapital">Initial Capital</label>
+-                            <input type="number" id="initialCapital" class="text-input"
+-                                   value="100000" min="1000" step="1000">
+-
+-                            <div id="dataStatus" class="data-status data-status--loading">
+-                                <span class="material-symbols-rounded data-status__icon">cloud_queue</span>
+-                                <span id="dataStatusText">Loading data...</span>
+-                            </div>
+-
+                         </div>
+                     </section>
+ 
+                     <!-- Section 2: Strategy -->
+                     <section class="section">
+-                        <div class="section__head">
+-                            <span class="badge">2</span>
+-                            <div>
+-                                <h2 class="section__title">Strategy</h2>
+-                                <p class="section__desc">Pick a strategy or use a preset</p>
+-                            </div>
+-                        </div>
+-                        <div class="section__body">
+-
+-                            <!-- Quick Presets -->
+-                            <p class="field-label">Quick Start</p>
+-                            <div class="presets">
+-                                <button type="button" class="preset-btn" data-preset="conservative">
+-                                    <span class="material-symbols-rounded">shield</span> Conservative
+-                                </button>
+-                                <button type="button" class="preset-btn" data-preset="balanced">
+-                                    <span class="material-symbols-rounded">balance</span> Balanced
+-                                </button>
+-                                <button type="button" class="preset-btn" data-preset="aggressive">
+-                                    <span class="material-symbols-rounded">bolt</span> Aggressive
+-                                </button>
+-                                <button type="button" class="preset-btn" data-preset="growth">
+-                                    <span class="material-symbols-rounded">rocket_launch</span> Growth
+-                                </button>
+-                            </div>
+-
+-                            <label class="field-label" for="strategySelect">Strategy</label>
+-                            <select id="strategySelect" class="text-input select-input">
+-                                <option value="">Choose a strategy...</option>
+-                            </select>
++                        <div class="card-outer">
++                            <div class="card-inner">
++                                <div class="section__head">
++                                    <span class="eyebrow">2</span>
++                                    <div>
++                                        <h2 class="section__title">Strategy</h2>
++                                        <p class="section__desc">Pick a strategy or use a preset</p>
++                                    </div>
++                                </div>
++                                <div class="section__body">
++
++                                    <!-- Quick Presets -->
++                                    <p class="field-label">Quick Start</p>
++                                    <div class="presets">
++                                        <button type="button" class="preset-btn" data-preset="conservative">
++                                            <span class="material-symbols-rounded">shield</span> Conservative
++                                        </button>
++                                        <button type="button" class="preset-btn" data-preset="balanced">
++                                            <span class="material-symbols-rounded">balance</span> Balanced
++                                        </button>
++                                        <button type="button" class="preset-btn" data-preset="aggressive">
++                                            <span class="material-symbols-rounded">bolt</span> Aggressive
++                                        </button>
++                                        <button type="button" class="preset-btn" data-preset="growth">
++                                            <span class="material-symbols-rounded">rocket_launch</span> Growth
++                                        </button>
++                                    </div>
++
++                                    <label class="field-label" for="strategySelect">Strategy</label>
++                                    <select id="strategySelect" class="text-input select-input">
++                                        <option value="">Choose a strategy...</option>
++                                    </select>
+ 
+-                            <div id="strategyParams"></div>
++                                    <div id="strategyParams"></div>
+ 
+-                            <button type="button" id="backtestBtn" class="btn btn--primary btn--lg">
+-                                <span class="material-symbols-rounded">play_arrow</span>
+-                                Run Backtest
+-                            </button>
++                                    <button type="button" id="backtestBtn" class="btn btn--primary btn--lg">
++                                        <span class="material-symbols-rounded">play_arrow</span>
++                                        Run Backtest
++                                    </button>
+ 
++                                </div>
++                            </div>
+                         </div>
+                     </section>
+ 
+                     <!-- Section 3: Advanced -->
+                     <section class="section section--collapsed" id="advancedSection">
+-                        <button type="button" class="section__head section__head--toggle" id="advancedToggle">
+-                            <span class="badge badge--outline">3</span>
+-                            <div>
+-                                <h2 class="section__title">Advanced</h2>
+-                                <p class="section__desc">Compare, optimize, save configs</p>
+-                            </div>
+-                            <span class="material-symbols-rounded chevron">expand_more</span>
+-                        </button>
+-                        <div class="section__body hidden" id="advancedBody">
+-
+-                            <!-- Compare -->
+-                            <div class="sub-card">
+-                                <h3 class="sub-card__title">
+-                                    <span class="material-symbols-rounded">compare_arrows</span>
+-                                    Compare Strategies
+-                                </h3>
+-                                <p class="sub-card__desc">Select strategies to compare side-by-side</p>
+-                                <div id="strategyPicker" class="strategy-picker"></div>
+-                                <button type="button" id="compareSelectedBtn" class="btn btn--outline" disabled>
+-                                    <span class="material-symbols-rounded">auto_awesome</span>
+-                                    Compare Selected (0)
++                        <div class="card-outer">
++                            <div class="card-inner">
++                                <button type="button" class="section__head section__head--toggle" id="advancedToggle">
++                                    <span class="eyebrow eyebrow--outline">3</span>
++                                    <div>
++                                        <h2 class="section__title">Advanced</h2>
++                                        <p class="section__desc">Compare, optimize, save configs</p>
++                                    </div>
++                                    <span class="material-symbols-rounded chevron">expand_more</span>
+                                 </button>
+-                            </div>
++                                <div class="section__body hidden" id="advancedBody">
++
++                                    <!-- Compare -->
++                                    <div class="sub-card">
++                                        <h3 class="sub-card__title">
++                                            <span class="material-symbols-rounded">compare_arrows</span>
++                                            Compare Strategies
++                                        </h3>
++                                        <p class="sub-card__desc">Select strategies to compare side-by-side</p>
++                                        <div id="strategyPicker" class="strategy-picker"></div>
++                                        <button type="button" id="compareSelectedBtn" class="btn btn--outline" disabled>
++                                            <span class="material-symbols-rounded">auto_awesome</span>
++                                            Compare Selected (0)
++                                        </button>
++                                    </div>
++
++                                    <!-- Optimization -->
++                                    <div class="sub-card">
++                                        <h3 class="sub-card__title">
++                                            <span class="material-symbols-rounded">scatter_plot</span>
++                                            Portfolio Optimization
++                                        </h3>
++                                        <p class="sub-card__desc">Find optimal asset allocation</p>
++                                        <div class="radio-row">
++                                            <label class="radio-label">
++                                                <input type="radio" name="optimizationType" value="sharpe" checked>
++                                                <span>Max Sharpe Ratio</span>
++                                            </label>
++                                            <label class="radio-label">
++                                                <input type="radio" name="optimizationType" value="minvar">
++                                                <span>Min Variance</span>
++                                            </label>
++                                        </div>
++                                        <div class="btn-row">
++                                            <button type="button" id="optimizeBtn" class="btn btn--outline btn--sm">
++                                                <span class="material-symbols-rounded">auto_graph</span> Optimize
++                                            </button>
++                                            <button type="button" id="frontierBtn" class="btn btn--outline btn--sm">
++                                                <span class="material-symbols-rounded">show_chart</span> Frontier
++                                            </button>
++                                        </div>
++                                    </div>
++
++                                    <!-- Monte Carlo -->
++                                    <div class="sub-card">
++                                        <h3 class="sub-card__title">
++                                            <span class="material-symbols-rounded">casino</span>
++                                            Monte Carlo Simulation
++                                        </h3>
++                                        <p class="sub-card__desc">Simulate thousands of portfolio paths using your current weights</p>
++                                        <div class="radio-row">
++                                            <label class="radio-label">
++                                                <input type="radio" name="mcSims" value="1000" checked>
++                                                <span>1,000</span>
++                                            </label>
++                                            <label class="radio-label">
++                                                <input type="radio" name="mcSims" value="3000">
++                                                <span>3,000</span>
++                                            </label>
++                                            <label class="radio-label">
++                                                <input type="radio" name="mcSims" value="5000">
++                                                <span>5,000</span>
++                                            </label>
++                                        </div>
++                                        <button type="button" id="monteCarloBtn" class="btn btn--outline">
++                                            <span class="material-symbols-rounded">casino</span>
++                                            Run Simulation
++                                        </button>
++                                    </div>
++
++                                    <!-- Save/Load Config -->
++                                    <div class="sub-card">
++                                        <h3 class="sub-card__title">
++                                            <span class="material-symbols-rounded">save</span>
++                                            Save / Load Config
++                                        </h3>
++                                        <div class="config-row">
++                                            <input type="text" id="configName" class="text-input text-input--sm" placeholder="Config name...">
++                                            <button type="button" id="saveConfigBtn" class="btn btn--primary btn--sm">Save</button>
++                                        </div>
++                                        <div class="config-row">
++                                            <select id="savedConfigs" class="text-input text-input--sm select-input">
++                                                <option value="">-- No saved configs --</option>
++                                            </select>
++                                            <button type="button" id="loadConfigBtn" class="btn btn--primary btn--sm">Load</button>
++                                            <button type="button" id="deleteConfigBtn" class="btn btn--error btn--sm">Del</button>
++                                        </div>
++                                    </div>
+ 
+-                            <!-- Optimization -->
+-                            <div class="sub-card">
+-                                <h3 class="sub-card__title">
+-                                    <span class="material-symbols-rounded">scatter_plot</span>
+-                                    Portfolio Optimization
+-                                </h3>
+-                                <p class="sub-card__desc">Find optimal asset allocation</p>
+-                                <div class="radio-row">
+-                                    <label class="radio-label">
+-                                        <input type="radio" name="optimizationType" value="sharpe" checked>
+-                                        <span>Max Sharpe Ratio</span>
+-                                    </label>
+-                                    <label class="radio-label">
+-                                        <input type="radio" name="optimizationType" value="minvar">
+-                                        <span>Min Variance</span>
+-                                    </label>
+-                                </div>
+-                                <div class="btn-row">
+-                                    <button type="button" id="optimizeBtn" class="btn btn--outline btn--sm">
+-                                        <span class="material-symbols-rounded">auto_graph</span> Optimize
+-                                    </button>
+-                                    <button type="button" id="frontierBtn" class="btn btn--outline btn--sm">
+-                                        <span class="material-symbols-rounded">show_chart</span> Frontier
+-                                    </button>
+                                 </div>
+                             </div>
+-
+-                            <!-- Monte Carlo -->
+-                            <div class="sub-card">
+-                                <h3 class="sub-card__title">
+-                                    <span class="material-symbols-rounded">casino</span>
+-                                    Monte Carlo Simulation
+-                                </h3>
+-                                <p class="sub-card__desc">Simulate thousands of portfolio paths using your current weights</p>
+-                                <div class="radio-row">
+-                                    <label class="radio-label">
+-                                        <input type="radio" name="mcSims" value="1000" checked>
+-                                        <span>1,000</span>
+-                                    </label>
+-                                    <label class="radio-label">
+-                                        <input type="radio" name="mcSims" value="3000">
+-                                        <span>3,000</span>
+-                                    </label>
+-                                    <label class="radio-label">
+-                                        <input type="radio" name="mcSims" value="5000">
+-                                        <span>5,000</span>
+-                                    </label>
+-                                </div>
+-                                <button type="button" id="monteCarloBtn" class="btn btn--outline">
+-                                    <span class="material-symbols-rounded">casino</span>
+-                                    Run Simulation
+-                                </button>
+-                            </div>
+-
+-                            <!-- Save/Load Config -->
+-                            <div class="sub-card">
+-                                <h3 class="sub-card__title">
+-                                    <span class="material-symbols-rounded">save</span>
+-                                    Save / Load Config
+-                                </h3>
+-                                <div class="config-row">
+-                                    <input type="text" id="configName" class="text-input text-input--sm" placeholder="Config name...">
+-                                    <button type="button" id="saveConfigBtn" class="btn btn--primary btn--sm">Save</button>
+-                                </div>
+-                                <div class="config-row">
+-                                    <select id="savedConfigs" class="text-input text-input--sm select-input">
+-                                        <option value="">-- No saved configs --</option>
+-                                    </select>
+-                                    <button type="button" id="loadConfigBtn" class="btn btn--primary btn--sm">Load</button>
+-                                    <button type="button" id="deleteConfigBtn" class="btn btn--error btn--sm">Del</button>
+-                                </div>
+-                            </div>
+-
+                         </div>
+                     </section>
+ 

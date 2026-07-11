@@ -1,0 +1,157 @@
+# Task 9: Chart & Table Styles
+
+**Files:**
+- Modify: `static/style.css` (add chart and table styles)
+
+**Interfaces:**
+- Consumes: Task 1 tokens, Task 5 cards
+- Produces: Styled charts, tables, tabs
+
+## Steps
+
+- [ ] **Step 1: Add chart, table, and tab styles**
+
+Append these styles to `static/style.css`:
+
+```css
+/* === CHARTS === */
+.chart-box {
+  position: relative;
+  height: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+@media (min-width: 768px) {
+  .chart-box { height: 360px; }
+}
+
+/* === TABS === */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-lg);
+  gap: 0;
+}
+
+.tab {
+  flex: 1;
+  padding: var(--space-md) var(--space-lg);
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out-expo);
+  position: relative;
+}
+
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--primary); }
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--primary);
+  border-radius: 2px 2px 0 0;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* === TABLES === */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  background: var(--surface-elevated);
+  padding: var(--space-md) var(--space-lg);
+  text-align: left;
+  font-weight: 500;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.table td {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+}
+
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover { background: var(--surface); }
+.table td:first-child { font-weight: 500; }
+.table td.positive { color: var(--success); font-weight: 500; }
+.table td.negative { color: var(--error); font-weight: 500; }
+
+/* === STATUS === */
+.status {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-lg);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status--success { background: var(--success-container); color: var(--success); }
+.status--error { background: var(--error-container); color: var(--error); }
+.status--loading { background: var(--primary-container); color: var(--primary); }
+
+/* === EMPTY STATE === */
+.empty-state {
+  text-align: center;
+  padding: var(--space-5xl) var(--space-xl);
+  color: var(--muted);
+}
+
+.empty-state__icon {
+  font-size: 56px;
+  color: var(--border-strong);
+  margin-bottom: var(--space-lg);
+  display: block;
+}
+
+.empty-state p { font-size: var(--text-body); }
+```
+
+- [ ] **Step 2: Verify charts and tables render**
+
+Open browser, confirm chart boxes, tables, and tabs display correctly.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add static/style.css
+git commit -m "feat: add chart, table, and tab styles"
+```
+
+## Report
+
+Write your report to: `.superpowers/sdd/task-9-report.md`
+
+Report should include:
+- Status: DONE, DONE_WITH_CONCERNS, NEEDS_CONTEXT, or BLOCKED
+- Commits made
+- Any concerns or observations

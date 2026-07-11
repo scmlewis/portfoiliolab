@@ -1,0 +1,124 @@
+diff --git a/static/app.js b/static/app.js
+index c0f8e12..5926ac8 100644
+--- a/static/app.js
++++ b/static/app.js
+@@ -406,7 +406,7 @@ function displayMonteCarlo(d) {
+     const fmt = v => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v);
+     const pct = v => (v * 100).toFixed(1) + '%';
+ 
+-    let html = '<div class="results__header"><h2 class="results__title"><span class="material-symbols-rounded">casino</span> Monte Carlo Simulation</h2></div>';
++    let html = '<div class="results__header"><h2 class="results__title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="3"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="16" cy="8" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg> Monte Carlo Simulation</h2></div>';
+     html += '<div class="metric-row">';
+     html += '<div class="metric-card metric-card--compact"><div class="metric-card__title">Median Final Value</div><div class="metric-card__value">' + fmt(stats.median) + '</div></div>';
+     html += '<div class="metric-card metric-card--compact"><div class="metric-card__title">Mean Final Value</div><div class="metric-card__value">' + fmt(stats.mean) + '</div></div>';
+@@ -1132,7 +1132,7 @@ function renderChip(sym) {
+     chip.innerHTML = '<span class="symbol-chip__ticker">' + sym.symbol + '</span>' +
+         (sym.name ? '<span class="symbol-chip__name">' + sym.name + '</span>' : '') +
+         '<button type="button" class="symbol-chip__remove" aria-label="Remove ' + sym.symbol + '">' +
+-        '<span class="material-symbols-rounded">close</span></button>';
++        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+     chip.querySelector('.symbol-chip__remove').addEventListener('click', (e) => {
+         e.stopPropagation();
+         removeSymbol(sym.symbol);
+diff --git a/static/style.css b/static/style.css
+index 079e255..78cef1c 100644
+--- a/static/style.css
++++ b/static/style.css
+@@ -143,6 +143,7 @@ html {
+   -moz-osx-font-smoothing: grayscale;
+   overflow: hidden;
+   height: 100%;
++  scroll-behavior: smooth;
+ }
+ 
+ body {
+@@ -1027,3 +1028,89 @@ a:hover { text-decoration: underline; }
+     grid-template-columns: 1fr;
+   }
+ }
++
++/* === FINAL POLISH === */
++
++/* Focus visible for accessibility */
++*:focus-visible {
++  outline: 2px solid var(--primary);
++  outline-offset: 2px;
++}
++
++/* Loading spinner */
++@keyframes spin {
++  to { transform: rotate(360deg); }
++}
++
++.btn--loading {
++  position: relative;
++  color: transparent !important;
++  pointer-events: none;
++}
++
++.btn--loading::after {
++  content: '';
++  position: absolute;
++  width: 18px;
++  height: 18px;
++  border: 2px solid white;
++  border-top-color: transparent;
++  border-radius: 50%;
++  animation: spin 0.8s linear infinite;
++}
++
++/* Tooltip */
++.tooltip-trigger {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  width: 16px;
++  height: 16px;
++  border-radius: 50%;
++  background: var(--border-strong);
++  color: var(--text);
++  font-size: 10px;
++  font-weight: 600;
++  cursor: help;
++  transition: background var(--duration-fast) var(--ease-out-expo);
++}
++
++.tooltip-trigger:hover {
++  background: var(--primary);
++  color: white;
++}
++
++.tooltip {
++  position: absolute;
++  bottom: calc(100% + 8px);
++  left: 50%;
++  transform: translateX(-50%);
++  background: var(--surface-elevated);
++  border: 1px solid var(--glass-border);
++  border-radius: var(--radius-md);
++  padding: var(--space-md);
++  box-shadow: var(--shadow-lg);
++  z-index: var(--z-tooltip);
++  min-width: 220px;
++  max-width: 280px;
++  pointer-events: none;
++  animation: tooltipIn var(--duration-fast) var(--ease-out-expo);
++}
++
++@keyframes tooltipIn {
++  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
++  to { opacity: 1; transform: translateX(-50%) translateY(0); }
++}
++
++.tooltip__title {
++  font-size: 13px;
++  font-weight: 600;
++  color: var(--text);
++  margin-bottom: 4px;
++}
++
++.tooltip__desc {
++  font-size: 12px;
++  color: var(--muted);
++  line-height: 1.5;
++}

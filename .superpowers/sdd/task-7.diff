@@ -1,0 +1,225 @@
+diff --git a/static/style.css b/static/style.css
+index 1410619..8f0af23 100644
+--- a/static/style.css
++++ b/static/style.css
+@@ -188,18 +188,60 @@ a:hover { text-decoration: underline; }
+   padding-top: calc(var(--space-xl) + 56px);
+ }
+ 
++/* === ASYMMETRICAL BENTO GRID === */
+ .grid {
+   display: grid;
+   grid-template-columns: 1fr;
++  grid-template-rows: auto;
+   gap: var(--space-xl);
+   height: 100%;
+ }
+ 
+ @media (min-width: 1024px) {
+   .grid {
+-    grid-template-columns: 400px 1fr;
++    grid-template-columns: 380px 1fr;
++    grid-template-rows: auto 1fr;
+     gap: var(--space-2xl);
+   }
++
++  .input-panel {
++    grid-row: 1 / -1;
++  }
++
++  .result-panel {
++    grid-column: 2;
++    grid-row: 1 / -1;
++  }
++}
++
++/* === RESULT GRID (Internal Bento) === */
++.result-grid {
++  display: grid;
++  grid-template-columns: 1fr;
++  gap: var(--space-lg);
++}
++
++@media (min-width: 768px) {
++  .result-grid {
++    grid-template-columns: repeat(4, 1fr);
++    grid-template-rows: auto auto;
++  }
++
++  .result-grid__metrics {
++    grid-column: 1 / -1;
++  }
++
++  .result-grid__chart {
++    grid-column: 1 / -1;
++  }
++
++  .result-grid__details {
++    grid-column: 1 / span(2);
++  }
++
++  .result-grid__actions {
++    grid-column: 3 / span(2);
++  }
+ }
+ 
+ /* === PANELS === */
+diff --git a/templates/index.html b/templates/index.html
+index d7542c5..8e8416c 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -301,78 +301,86 @@
+                         <div id="singleResults" class="hidden">
+                             <h3 id="strategyName" class="result-strategy-name"></h3>
+ 
+-                            <div class="metrics">
+-                                <div class="metric-card">
+-                                    <span class="material-symbols-rounded metric-card__icon">trending_up</span>
+-                                    <span class="metric-card__label">Total Return
+-                                        <span class="tooltip-trigger" data-tooltip="totalReturn">?</span>
+-                                    </span>
+-                                    <span class="metric-card__value" id="totalReturn">-</span>
+-                                </div>
+-                                <div class="metric-card">
+-                                    <span class="material-symbols-rounded metric-card__icon">show_chart</span>
+-                                    <span class="metric-card__label">Annual Return
+-                                        <span class="tooltip-trigger" data-tooltip="annualReturn">?</span>
+-                                    </span>
+-                                    <span class="metric-card__value" id="annualReturn">-</span>
+-                                </div>
+-                                <div class="metric-card metric-card--red">
+-                                    <span class="material-symbols-rounded metric-card__icon">vertical_align_bottom</span>
+-                                    <span class="metric-card__label">Max Drawdown
+-                                        <span class="tooltip-trigger" data-tooltip="maxDrawdown">?</span>
+-                                    </span>
+-                                    <span class="metric-card__value" id="maxDD">-</span>
+-                                </div>
+-                                <div class="metric-card metric-card--purple">
+-                                    <span class="material-symbols-rounded metric-card__icon">speed</span>
+-                                    <span class="metric-card__label">Sharpe Ratio
+-                                        <span class="tooltip-trigger" data-tooltip="sharpeRatio">?</span>
+-                                    </span>
+-                                    <span class="metric-card__value" id="sharpeRatio">-</span>
++                            <div class="result-grid">
++                                <div class="result-grid__metrics">
++                                    <div class="metrics">
++                                        <div class="metric-card">
++                                            <span class="material-symbols-rounded metric-card__icon">trending_up</span>
++                                            <span class="metric-card__label">Total Return
++                                                <span class="tooltip-trigger" data-tooltip="totalReturn">?</span>
++                                            </span>
++                                            <span class="metric-card__value" id="totalReturn">-</span>
++                                        </div>
++                                        <div class="metric-card">
++                                            <span class="material-symbols-rounded metric-card__icon">show_chart</span>
++                                            <span class="metric-card__label">Annual Return
++                                                <span class="tooltip-trigger" data-tooltip="annualReturn">?</span>
++                                            </span>
++                                            <span class="metric-card__value" id="annualReturn">-</span>
++                                        </div>
++                                        <div class="metric-card metric-card--red">
++                                            <span class="material-symbols-rounded metric-card__icon">vertical_align_bottom</span>
++                                            <span class="metric-card__label">Max Drawdown
++                                                <span class="tooltip-trigger" data-tooltip="maxDrawdown">?</span>
++                                            </span>
++                                            <span class="metric-card__value" id="maxDD">-</span>
++                                        </div>
++                                        <div class="metric-card metric-card--purple">
++                                            <span class="material-symbols-rounded metric-card__icon">speed</span>
++                                            <span class="metric-card__label">Sharpe Ratio
++                                                <span class="tooltip-trigger" data-tooltip="sharpeRatio">?</span>
++                                            </span>
++                                            <span class="metric-card__value" id="sharpeRatio">-</span>
++                                        </div>
++                                    </div>
+                                 </div>
+-                            </div>
+ 
+-                            <div class="detail-card">
+-                                <div class="detail-row"><span>Initial Value</span><strong id="initialVal">-</strong></div>
+-                                <div class="detail-row"><span>Final Value</span><strong id="finalVal">-</strong></div>
+-                                <div class="detail-row"><span>Period</span><strong id="period">-</strong></div>
+-                            </div>
+-
+-                            <div class="chart-box">
+-                                <canvas id="equityChart"></canvas>
+-                            </div>
+-
+-                            <div class="benchmark-row" id="benchmarkRow" style="display:none">
+-                                <label class="checkbox-label">
+-                                    <input type="checkbox" id="benchmarkToggle">
+-                                    <span class="material-symbols-rounded" style="font-size:16px">show_chart</span>
+-                                    Show S&P 500 Benchmark
+-                                </label>
+-                                <span class="benchmark-stats" id="benchmarkStats"></span>
+-                            </div>
+-
+-                            <div class="export-row">
+-                                <button type="button" id="exportCsvBtn" class="btn btn--outline btn--sm">
+-                                    <span class="material-symbols-rounded">download</span> Export CSV
+-                                </button>
+-                                <button type="button" id="exportTradesBtn" class="btn btn--outline btn--sm hidden">
+-                                    <span class="material-symbols-rounded">download</span> Export Trades
+-                                </button>
+-                                <button type="button" id="exportPdfBtn" class="btn btn--outline btn--sm">
+-                                    <span class="material-symbols-rounded">picture_as_pdf</span> Export PDF
+-                                </button>
+-                            </div>
++                                <div class="result-grid__chart">
++                                    <div class="chart-box">
++                                        <canvas id="equityChart"></canvas>
++                                    </div>
++                                    <div class="benchmark-row" id="benchmarkRow" style="display:none">
++                                        <label class="checkbox-label">
++                                            <input type="checkbox" id="benchmarkToggle">
++                                            <span class="material-symbols-rounded" style="font-size:16px">show_chart</span>
++                                            Show S&P 500 Benchmark
++                                        </label>
++                                        <span class="benchmark-stats" id="benchmarkStats"></span>
++                                    </div>
++                                </div>
+ 
+-                            <div id="tradeLogSection" class="hidden">
+-                                <div class="trade-log-header">
+-                                    <h4 class="subsection-title">Trade Log</h4>
+-                                    <span class="trade-count" id="tradeCount"></span>
++                                <div class="result-grid__details">
++                                    <div class="detail-card">
++                                        <div class="detail-row"><span>Initial Value</span><strong id="initialVal">-</strong></div>
++                                        <div class="detail-row"><span>Final Value</span><strong id="finalVal">-</strong></div>
++                                        <div class="detail-row"><span>Period</span><strong id="period">-</strong></div>
++                                    </div>
++                                    <div id="tradeLogSection" class="hidden">
++                                        <div class="trade-log-header">
++                                            <h4 class="subsection-title">Trade Log</h4>
++                                            <span class="trade-count" id="tradeCount"></span>
++                                        </div>
++                                        <div class="table-wrap">
++                                            <table class="table">
++                                                <thead><tr><th>Date</th><th>Action</th><th>Symbol</th><th>Qty</th><th>Price</th><th>Value</th></tr></thead>
++                                                <tbody id="tradeLogBody"></tbody>
++                                            </table>
++                                        </div>
++                                    </div>
+                                 </div>
+-                                <div class="table-wrap">
+-                                    <table class="table">
+-                                        <thead><tr><th>Date</th><th>Action</th><th>Symbol</th><th>Qty</th><th>Price</th><th>Value</th></tr></thead>
+-                                        <tbody id="tradeLogBody"></tbody>
+-                                    </table>
++
++                                <div class="result-grid__actions">
++                                    <div class="export-row">
++                                        <button type="button" id="exportCsvBtn" class="btn btn--outline btn--sm">
++                                            <span class="material-symbols-rounded">download</span> Export CSV
++                                        </button>
++                                        <button type="button" id="exportTradesBtn" class="btn btn--outline btn--sm hidden">
++                                            <span class="material-symbols-rounded">download</span> Export Trades
++                                        </button>
++                                        <button type="button" id="exportPdfBtn" class="btn btn--outline btn--sm">
++                                            <span class="material-symbols-rounded">picture_as_pdf</span> Export PDF
++                                        </button>
++                                    </div>
+                                 </div>
+                             </div>
+                         </div>

@@ -1,0 +1,58 @@
+diff --git a/static/style.css b/static/style.css
+index 9306edd..ec94544 100644
+--- a/static/style.css
++++ b/static/style.css
+@@ -131,3 +131,40 @@ html.dark {
+   --glass-bg: rgba(255,255,255,0.05);
+   --glass-border: rgba(255,255,255,0.08);
+ }
++
++/* === BASE === */
++html {
++  font-family: var(--font-sans);
++  background: var(--bg);
++  color: var(--text);
++  font-size: var(--text-body);
++  line-height: var(--leading-body);
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
++  overflow: hidden;
++  height: 100%;
++}
++
++body {
++  height: 100%;
++  overflow: hidden;
++  background: var(--bg);
++}
++
++h1, h2, h3, h4, h5, h6 {
++  color: var(--text);
++  font-weight: 600;
++  letter-spacing: var(--tracking-h2);
++}
++
++h1 { font-size: var(--text-h1); line-height: var(--leading-h1); letter-spacing: var(--tracking-h1); }
++h2 { font-size: var(--text-h2); line-height: var(--leading-h2); letter-spacing: var(--tracking-h2); }
++h3 { font-size: var(--text-h3); line-height: var(--leading-h3); }
++
++a { color: var(--primary); text-decoration: none; }
++a:hover { text-decoration: underline; }
++
++::selection {
++  background: var(--primary-container);
++  color: var(--primary);
++}
+diff --git a/templates/index.html b/templates/index.html
+index a4c9f1b..6fc6a1f 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -12,7 +12,7 @@
+     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236750a4'><path d='M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>">
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
++    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+     <link rel="stylesheet" href="/static/style.css">
+     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>

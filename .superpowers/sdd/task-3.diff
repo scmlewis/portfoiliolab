@@ -1,0 +1,60 @@
+diff --git a/static/style.css b/static/style.css
+index ec94544..8a117a5 100644
+--- a/static/style.css
++++ b/static/style.css
+@@ -168,3 +168,55 @@ a:hover { text-decoration: underline; }
+   background: var(--primary-container);
+   color: var(--primary);
+ }
++
++/* === APP SHELL === */
++.app {
++  display: flex;
++  flex-direction: column;
++  height: 100vh;
++  height: 100dvh;
++  max-width: 1440px;
++  margin: 0 auto;
++  position: relative;
++}
++
++/* === MAIN LAYOUT === */
++.main {
++  flex: 1;
++  overflow: hidden;
++  padding: var(--space-xl);
++}
++
++.grid {
++  display: grid;
++  grid-template-columns: 1fr;
++  gap: var(--space-xl);
++  height: 100%;
++}
++
++@media (min-width: 1024px) {
++  .grid {
++    grid-template-columns: 400px 1fr;
++    gap: var(--space-2xl);
++  }
++}
++
++/* === PANELS === */
++.panel {
++  background: var(--surface-card);
++  backdrop-filter: var(--glass-blur);
++  -webkit-backdrop-filter: var(--glass-blur);
++  border: 1px solid var(--glass-border);
++  border-radius: var(--radius-2xl);
++  overflow-y: auto;
++  overflow-x: hidden;
++}
++
++.input-panel { padding: var(--space-xl); }
++.result-panel { padding: var(--space-xl); }
++
++/* === SCROLLBAR === */
++::-webkit-scrollbar { width: 6px; height: 6px; }
++::-webkit-scrollbar-track { background: transparent; }
++::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
++::-webkit-scrollbar-thumb:hover { background: var(--muted); }

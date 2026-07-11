@@ -1,0 +1,171 @@
+# Task 1: Design Tokens & CSS Custom Properties
+
+**Files:**
+- Modify: `static/style.css` (complete rewrite of :root and html.dark variables)
+
+**Interfaces:**
+- Consumes: Design spec section 2 (tokens)
+- Produces: CSS custom properties used by all subsequent tasks
+
+## Steps
+
+- [ ] **Step 1: Clear existing style.css and write base reset + token system**
+
+Replace the entire content of `static/style.css` with:
+
+```css
+/* ===================================================================
+   PORTFOLIO LAB — Ethereal Glass Design System
+   =================================================================== */
+
+/* === RESET === */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* === TOKENS (Light) === */
+:root {
+  /* Colors */
+  --bg: #FAFAFA;
+  --surface: rgba(255,255,255,0.7);
+  --surface-card: rgba(255,255,255,0.5);
+  --surface-elevated: rgba(255,255,255,0.9);
+  --primary: #6366F1;
+  --primary-container: rgba(99,102,241,0.1);
+  --accent: #8B5CF6;
+  --accent-container: rgba(139,92,246,0.1);
+  --text: #0F172A;
+  --text-secondary: #334155;
+  --muted: #64748B;
+  --border: rgba(0,0,0,0.06);
+  --border-strong: rgba(0,0,0,0.12);
+  --success: #10B981;
+  --success-container: rgba(16,185,129,0.1);
+  --error: #EF4444;
+  --error-container: rgba(239,68,68,0.1);
+  --warning: #F59E0B;
+  --warning-container: rgba(245,158,11,0.1);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.08);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.1);
+  --shadow-inner: inset 0 1px 1px rgba(255,255,255,0.15);
+
+  /* Glass */
+  --glass-bg: rgba(255,255,255,0.7);
+  --glass-border: rgba(0,0,0,0.06);
+  --glass-blur: blur(20px);
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+  --space-4xl: 64px;
+  --space-5xl: 96px;
+  --space-6xl: 128px;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-sans: 'Geist', system-ui, -apple-system, sans-serif;
+  --text-display: 72px;
+  --text-h1: 48px;
+  --text-h2: 32px;
+  --text-h3: 24px;
+  --text-body: 16px;
+  --text-caption: 12px;
+  --leading-display: 80px;
+  --leading-h1: 56px;
+  --leading-h2: 40px;
+  --leading-h3: 32px;
+  --leading-body: 24px;
+  --leading-caption: 16px;
+  --tracking-display: -0.02em;
+  --tracking-h1: -0.01em;
+  --tracking-h2: -0.005em;
+  --tracking-body: 0;
+  --tracking-caption: 0.02em;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --duration-slower: 700ms;
+
+  /* Z-index */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-nav: 300;
+  --z-modal: 1000;
+  --z-tooltip: 1100;
+  --z-overlay: 1200;
+}
+
+/* === TOKENS (Dark) === */
+html.dark {
+  color-scheme: dark;
+  --bg: #050505;
+  --surface: rgba(255,255,255,0.03);
+  --surface-card: rgba(255,255,255,0.05);
+  --surface-elevated: rgba(255,255,255,0.08);
+  --primary: #818CF8;
+  --primary-container: rgba(129,140,248,0.15);
+  --accent: #A78BFA;
+  --accent-container: rgba(167,139,250,0.15);
+  --text: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --muted: #94A3B8;
+  --border: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.12);
+  --success: #34D399;
+  --success-container: rgba(52,211,153,0.15);
+  --error: #F87171;
+  --error-container: rgba(248,113,113,0.15);
+  --warning: #FBBF24;
+  --warning-container: rgba(251,191,36,0.15);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.5);
+  --shadow-inner: inset 0 1px 1px rgba(255,255,255,0.05);
+
+  --glass-bg: rgba(255,255,255,0.05);
+  --glass-border: rgba(255,255,255,0.08);
+}
+```
+
+- [ ] **Step 2: Verify tokens render correctly**
+
+Open `index.html` in browser, inspect `:root` in DevTools. Confirm all variables are accessible.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add static/style.css
+git commit -m "feat: add Ethereal Glass design token system"
+```
+
+## Report
+
+Write your report to: `.superpowers/sdd/task-1-report.md`
+
+Report should include:
+- Status: DONE, DONE_WITH_CONCERNS, NEEDS_CONTEXT, or BLOCKED
+- Commits made
+- Test results (if any)
+- Any concerns or observations

@@ -1,0 +1,383 @@
+diff --git a/static/app.js b/static/app.js
+index f5324ba..5314666 100644
+--- a/static/app.js
++++ b/static/app.js
+@@ -12,6 +12,7 @@ let activeAbortControllers = [];
+ let dataLoaded = false;
+ let currentAllocations = {};
+ let savedStrategyParams = {};
++let fabIntersectionObserver = null;
+ 
+ // DOM
+ const backtestBtn = document.getElementById('backtestBtn');
+@@ -25,6 +26,7 @@ const optimizeBtn = document.getElementById('optimizeBtn');
+ const frontierBtn = document.getElementById('frontierBtn');
+ 
+ document.addEventListener('DOMContentLoaded', init);
++window.addEventListener('beforeunload', cleanupMobileFab);
+ 
+ async function init() {
+     await loadStrategies();
+@@ -175,10 +177,14 @@ async function loadRealData() {
+ 
+ function setupHelp() {
+     const modal = document.getElementById('helpModal');
+-    const helpBtn = document.getElementById('helpBtn');
+     const closeBtn = document.getElementById('helpCloseBtn');
+ 
+-    helpBtn.addEventListener('click', () => modal.classList.remove('hidden'));
++    function openHelp() { modal.classList.remove('hidden'); }
++
++    document.querySelectorAll('[data-section="help"]').forEach(el => {
++        el.addEventListener('click', (e) => { e.preventDefault(); openHelp(); });
++    });
++
+     closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+     modal.addEventListener('click', (e) => {
+         if (e.target === modal) modal.classList.add('hidden');
+@@ -206,7 +212,10 @@ const TOOLTIP_DEFS = {
+ let activeTooltip = null;
+ 
+ function setupTooltips() {
+-    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
++    // Use pointer: coarse to detect touch-primary devices (excludes hybrid touchscreen laptops with mouse)
++    // Note: 'ontouchstart' in window || navigator.maxTouchPoints > 0 would match hybrid devices
++    // (Surface Pro, MacBook Touch Bar), disabling hover tooltips even when using a mouse.
++    const isTouch = window.matchMedia('(pointer: coarse)').matches;
+ 
+     if (isTouch) {
+         // Tap-to-toggle on touch devices
+@@ -309,19 +318,28 @@ function setupMobileFab() {
+     fab.addEventListener('click', () => runBacktest());
+ 
+     // Show/hide based on scroll position
+-    const observer = new IntersectionObserver((entries) => {
++    fabIntersectionObserver = new IntersectionObserver((entries) => {
+         entries.forEach(entry => {
+             if (entry.isIntersecting) {
+                 fab.classList.add('hidden');
++                fab.classList.remove('fab--visible');
+             } else {
+                 fab.classList.remove('hidden');
++                fab.classList.add('fab--visible');
+             }
+         });
+     }, { threshold: 0 });
+ 
+     // Observe the desktop backtest button
+     const backtestBtn = document.getElementById('backtestBtn');
+-    if (backtestBtn) observer.observe(backtestBtn);
++    if (backtestBtn) fabIntersectionObserver.observe(backtestBtn);
++}
++
++function cleanupMobileFab() {
++    if (fabIntersectionObserver) {
++        fabIntersectionObserver.disconnect();
++        fabIntersectionObserver = null;
++    }
+ }
+ 
+ function showTooltip(trigger, def) {
+@@ -674,7 +692,7 @@ async function runBacktest() {
+ 
+         const { symbols, numDays, initialCapital } = getParams();
+         showMsg('Running backtest...', 'loading');
+-        setBtnLoading(backtestBtn, true);
++        if (backtestBtn) setBtnLoading(backtestBtn, true);
+ 
+         const r = await fetchAbort('/api/backtest', {
+             method: 'POST', headers: { 'Content-Type': 'application/json' },
+@@ -684,7 +702,7 @@ async function runBacktest() {
+         if (d.success) { currentResult = d.result; displaySingle(d.result); saveResults(); showMsg('Backtest completed', 'success'); }
+         else showMsg('Error: ' + d.error, 'error');
+     } catch (e) { if (e.name !== 'AbortError') showMsg('Error: ' + e.message, 'error'); }
+-    finally { setBtnLoading(backtestBtn, false); }
++    finally { if (backtestBtn) setBtnLoading(backtestBtn, false); }
+ }
+ 
+ function setBtnLoading(btn, on) {
+@@ -1392,9 +1410,14 @@ function restoreDarkMode() {
+ }
+ 
+ function updateDarkIcon(dark) {
+-    document.getElementById('darkModeToggle').innerHTML = dark
+-        ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+-        : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
++    const toggle = document.getElementById('darkModeToggle');
++    if (!toggle) return;
++    const sun = toggle.querySelector('.icon-sun');
++    const moon = toggle.querySelector('.icon-moon');
++    if (sun && moon) {
++        sun.style.display = dark ? 'none' : 'block';
++        moon.style.display = dark ? 'block' : 'none';
++    }
+ }
+ 
+ // ============================================================================
+@@ -1517,3 +1540,34 @@ function restoreResults() {
+         if (s) { const r = JSON.parse(s); if (r?.snapshots) { currentResult = r; displaySingle(r); } }
+     } catch (e) {}
+ }
++
++// Mobile nav toggle
++const navHamburger = document.getElementById('navHamburger');
++const navOverlay = document.getElementById('navOverlay');
++
++if (navHamburger && navOverlay) {
++  navHamburger.addEventListener('click', () => {
++    navHamburger.classList.toggle('active');
++    navOverlay.classList.toggle('hidden');
++    document.body.style.overflow = navOverlay.classList.contains('hidden') ? '' : 'hidden';
++  });
++
++  navOverlay.querySelectorAll('.nav-overlay__link').forEach(link => {
++    link.addEventListener('click', () => {
++      navHamburger.classList.remove('active');
++      navOverlay.classList.add('hidden');
++      document.body.style.overflow = '';
++    });
++  });
++}
++
++// Mobile dark mode toggle
++const darkModeToggleMobile = document.getElementById('darkModeToggleMobile');
++if (darkModeToggleMobile) {
++  darkModeToggleMobile.addEventListener('click', () => {
++    toggleDarkMode();
++    navHamburger.classList.remove('active');
++    navOverlay.classList.add('hidden');
++    document.body.style.overflow = '';
++  });
++}
+diff --git a/static/style.css b/static/style.css
+index 8a117a5..2e13e68 100644
+--- a/static/style.css
++++ b/static/style.css
+@@ -185,6 +185,7 @@ a:hover { text-decoration: underline; }
+   flex: 1;
+   overflow: hidden;
+   padding: var(--space-xl);
++  padding-top: calc(var(--space-xl) + 56px);
+ }
+ 
+ .grid {
+@@ -220,3 +221,157 @@ a:hover { text-decoration: underline; }
+ ::-webkit-scrollbar-track { background: transparent; }
+ ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+ ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
++
++/* === FLOATING GLASS NAV === */
++.nav {
++  position: fixed;
++  top: var(--space-xl);
++  left: 50%;
++  transform: translateX(-50%);
++  z-index: var(--z-nav);
++  width: calc(100% - var(--space-3xl));
++  max-width: 600px;
++}
++
++.nav__inner {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-lg);
++  padding: var(--space-md) var(--space-xl);
++  background: var(--glass-bg);
++  backdrop-filter: var(--glass-blur);
++  -webkit-backdrop-filter: var(--glass-blur);
++  border: 1px solid var(--glass-border);
++  border-radius: var(--radius-full);
++  box-shadow: var(--shadow-lg);
++}
++
++.nav__brand {
++  display: flex;
++  align-items: center;
++  gap: var(--space-sm);
++}
++
++.nav__icon { color: var(--primary); }
++
++.nav__title {
++  font-size: var(--text-body);
++  font-weight: 600;
++  color: var(--text);
++}
++
++.nav__links {
++  display: none;
++  align-items: center;
++  gap: var(--space-sm);
++}
++
++@media (min-width: 768px) {
++  .nav__links { display: flex; }
++  .nav__hamburger { display: none; }
++}
++
++.nav__link {
++  padding: var(--space-sm) var(--space-md);
++  font-size: 14px;
++  font-weight: 500;
++  color: var(--text-secondary);
++  border-radius: var(--radius-full);
++  transition: all var(--duration-fast) var(--ease-out-expo);
++  cursor: pointer;
++  background: none;
++  border: none;
++  font-family: inherit;
++}
++
++.nav__link:hover {
++  color: var(--text);
++  background: var(--primary-container);
++}
++
++.nav__link--icon {
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  width: 36px;
++  height: 36px;
++  padding: 0;
++}
++
++/* Hamburger */
++.nav__hamburger {
++  display: flex;
++  flex-direction: column;
++  gap: 5px;
++  padding: var(--space-sm);
++  background: none;
++  border: none;
++  cursor: pointer;
++}
++
++@media (min-width: 768px) {
++  .nav__hamburger { display: none; }
++}
++
++.nav__hamburger-line {
++  width: 20px;
++  height: 1.5px;
++  background: var(--text);
++  transition: all var(--duration-normal) var(--ease-spring);
++  transform-origin: center;
++}
++
++.nav__hamburger.active .nav__hamburger-line:first-child {
++  transform: translateY(3.25px) rotate(45deg);
++}
++
++.nav__hamburger.active .nav__hamburger-line:last-child {
++  transform: translateY(-3.25px) rotate(-45deg);
++}
++
++/* Mobile Overlay */
++.nav-overlay {
++  position: fixed;
++  inset: 0;
++  z-index: var(--z-overlay);
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  background: rgba(0,0,0,0.8);
++  backdrop-filter: blur(24px);
++  -webkit-backdrop-filter: blur(24px);
++  opacity: 1;
++  transition: opacity var(--duration-normal) var(--ease-out-expo);
++}
++
++.nav-overlay.hidden {
++  display: none;
++  opacity: 0;
++  pointer-events: none;
++}
++
++.nav-overlay__content {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: var(--space-xl);
++}
++
++.nav-overlay__link {
++  font-size: var(--text-h2);
++  font-weight: 600;
++  color: var(--text);
++  opacity: 0;
++  transform: translateY(24px);
++  transition: all var(--duration-slow) var(--ease-out-expo);
++}
++
++.nav-overlay:not(.hidden) .nav-overlay__link {
++  opacity: 1;
++  transform: translateY(0);
++}
++
++.nav-overlay:not(.hidden) .nav-overlay__link:nth-child(1) { transition-delay: 100ms; }
++.nav-overlay:not(.hidden) .nav-overlay__link:nth-child(2) { transition-delay: 150ms; }
++.nav-overlay:not(.hidden) .nav-overlay__link:nth-child(3) { transition-delay: 200ms; }
+diff --git a/templates/index.html b/templates/index.html
+index 6fc6a1f..19a5461 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -22,22 +22,42 @@
+ <body>
+     <div class="app">
+ 
+-        <!-- Header -->
+-        <header class="header">
+-            <div class="header__row">
+-                <span class="material-symbols-rounded header__icon">trending_up</span>
+-                <div class="header__text">
+-                    <h1 class="header__title">PortfolioLab</h1>
+-                    <p class="header__sub">Backtest strategies &bull; Optimize portfolios &bull; Real data</p>
+-                </div>
+-                <button id="helpBtn" class="icon-btn" aria-label="Help" title="Help & Guide">
+-                    <span class="material-symbols-rounded">help</span>
+-                </button>
+-                <button id="darkModeToggle" class="icon-btn" aria-label="Toggle dark mode">
+-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+-                </button>
++        <!-- Floating Glass Nav -->
++        <nav class="nav" id="mainNav">
++          <div class="nav__inner">
++            <div class="nav__brand">
++              <svg class="nav__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
++                <path d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" stroke-linecap="round" stroke-linejoin="round"/>
++              </svg>
++              <span class="nav__title">PortfolioLab</span>
++            </div>
++            <div class="nav__links" id="navLinks">
++              <a href="#" class="nav__link" data-section="strategies">Strategies</a>
++              <a href="#" class="nav__link" data-section="help">Help</a>
++              <button id="darkModeToggle" class="nav__link nav__link--icon" aria-label="Toggle dark mode">
++                <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
++                  <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
++                </svg>
++                <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none">
++                  <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
++                </svg>
++              </button>
+             </div>
+-        </header>
++            <button class="nav__hamburger" id="navHamburger" aria-label="Toggle menu">
++              <span class="nav__hamburger-line"></span>
++              <span class="nav__hamburger-line"></span>
++            </button>
++          </div>
++        </nav>
++
++        <!-- Mobile Menu Overlay -->
++        <div class="nav-overlay hidden" id="navOverlay">
++          <div class="nav-overlay__content">
++            <a href="#" class="nav-overlay__link" data-section="strategies">Strategies</a>
++            <a href="#" class="nav-overlay__link" data-section="help">Help</a>
++            <button id="darkModeToggleMobile" class="nav-overlay__link" aria-label="Toggle dark mode">Toggle Theme</button>
++          </div>
++        </div>
+ 
+         <!-- Main Content -->
+         <main class="main">
