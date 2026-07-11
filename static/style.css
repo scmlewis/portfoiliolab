@@ -653,7 +653,7 @@ a:hover { text-decoration: underline; }
   background: none;
   border: none;
   border-bottom: 1px solid var(--border);
-  color: var(--text-secondary);
+  color: var(--text);
   font-size: 14px;
   font-family: inherit;
   text-align: left;
@@ -785,7 +785,7 @@ a:hover { text-decoration: underline; }
 /* === STRATEGY PICKER (Compare) === */
 .strategy-picker {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: var(--space-sm);
   margin-bottom: var(--space-md);
 }
@@ -797,18 +797,15 @@ a:hover { text-decoration: underline; }
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  color: var(--text);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-out-expo);
-  overflow: hidden;
 }
 
 .strategy-picker__name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
+  white-space: normal;
+  overflow: visible;
 }
 
 .strategy-picker__max {
