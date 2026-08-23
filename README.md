@@ -4,6 +4,12 @@ A Flask-based web application for backtesting investment portfolios with real ma
 
 🌐 **Live Demo**: [https://portfoiliolab.onrender.com](https://portfoiliolab.onrender.com)
 
+---
+
+## Why this exists
+
+Portfolio theory is taught with formulas and rarely touched by hand. PortfolioLab puts Monte Carlo simulation, Sharpe and VaR/CVaR in one toolkit so the maths becomes something you can poke at with your own numbers.
+
 ## Quick Start
 
 ### Local Development
@@ -162,3 +168,6 @@ MIT License - See [LICENSE](LICENSE) file for details.
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+---
+
+If this saved you time or gave you an idea, a ⭐ on the repo is appreciated — it helps others find it.
