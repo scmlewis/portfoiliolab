@@ -2,13 +2,24 @@
 
 A Flask-based web application for backtesting investment portfolios with real market data, multiple strategies, and interactive visualizations.
 
-🌐 **Live Demo**: [https://portfoiliolab.onrender.com](https://portfoiliolab.onrender.com)
+ **Live Demo**: [https://portfoiliolab.onrender.com](https://portfoiliolab.onrender.com)
 
 ---
 
 ## Why this exists
 
 Portfolio theory is taught with formulas and rarely touched by hand. PortfolioLab puts Monte Carlo simulation, Sharpe and VaR/CVaR in one toolkit so the maths becomes something you can poke at with your own numbers.
+
+## Features
+
+-  **Real Market Data**: Fetch live stock prices from Yahoo Finance
+-  **7 Trading Strategies**: Buy & Hold, Balanced, Momentum, Rebalance, RSI, MACD, Bollinger
+-  **Interactive Charts**: Visualize equity curves with Chart.js
+-  **Mobile Responsive**: Clean, modern UI that works on all devices
+-  **Quick Compare**: Side-by-side strategy comparison
+-  **Portfolio Optimization**: Modern Portfolio Theory (MPT)
+-  **Monte Carlo Simulation**: Risk analysis with 1000+ scenarios
+-  **Performance Metrics**: Returns, Max Drawdown, Sharpe Ratio, VaR/CVaR
 
 ## Quick Start
 
@@ -49,16 +60,40 @@ If `render.yaml` isn't detected, configure manually:
 | **Start Command** | `gunicorn app:app --workers 2 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT` |
 | **Python Version** | 3.12.7 |
 
-## Features
+## API Endpoints
 
-- 📊 **Real Market Data**: Fetch live stock prices from Yahoo Finance
-- 🎯 **7 Trading Strategies**: Buy & Hold, Balanced, Momentum, Rebalance, RSI, MACD, Bollinger
-- 📈 **Interactive Charts**: Visualize equity curves with Chart.js
-- 📱 **Mobile Responsive**: Clean, modern UI that works on all devices
-- ⚡ **Quick Compare**: Side-by-side strategy comparison
-- 🔧 **Portfolio Optimization**: Modern Portfolio Theory (MPT)
-- 🎲 **Monte Carlo Simulation**: Risk analysis with 1000+ scenarios
-- 📉 **Performance Metrics**: Returns, Max Drawdown, Sharpe Ratio, VaR/CVaR
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Web interface |
+| `/api/strategies` | GET | List available strategies |
+| `/api/symbols-autocomplete` | GET | Symbol search |
+| `/api/backtest` | POST | Run single backtest |
+| `/api/compare` | POST | Compare multiple strategies |
+| `/api/optimize-portfolio` | POST | MPT optimization |
+| `/api/efficient-frontier` | POST | Efficient frontier |
+| `/api/monte-carlo` | POST | Monte Carlo simulation |
+| `/api/rolling-metrics` | POST | Rolling Sharpe/volatility |
+
+## Available Strategies
+
+| Strategy | Description | Parameters |
+|----------|-------------|------------|
+| **Buy & Hold** | Single asset buy and hold | symbol, allocation |
+| **Balanced Portfolio** | Static multi-asset allocation | allocations dict |
+| **Momentum** | Moving average crossover | short_window, long_window |
+| **Rebalance** | Periodic rebalancing | allocations, frequency |
+| **RSI Oversold** | RSI-based mean reversion | symbol, rsi_period, oversold_level |
+| **MACD** | MACD crossover signals | symbol, fast, slow, signal |
+| **Bollinger Bands** | Band-based mean reversion | symbol, period, num_std |
+
+## Technology Stack
+
+- **Backend**: Flask 3.0+, Python 3.12
+- **Data Source**: Yahoo Finance (yfinance)
+- **Financial Libraries**: numpy, scipy
+- **Frontend**: Vanilla JavaScript, Chart.js
+- **Styling**: Custom CSS (Material 3 design)
+- **Deployment**: Render (Gunicorn WSGI server)
 
 ## Project Structure
 
@@ -93,32 +128,6 @@ portfoiliolab/
 └── test_strategies.py         # Comprehensive test suite
 ```
 
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Web interface |
-| `/api/strategies` | GET | List available strategies |
-| `/api/symbols-autocomplete` | GET | Symbol search |
-| `/api/backtest` | POST | Run single backtest |
-| `/api/compare` | POST | Compare multiple strategies |
-| `/api/optimize-portfolio` | POST | MPT optimization |
-| `/api/efficient-frontier` | POST | Efficient frontier |
-| `/api/monte-carlo` | POST | Monte Carlo simulation |
-| `/api/rolling-metrics` | POST | Rolling Sharpe/volatility |
-
-## Available Strategies
-
-| Strategy | Description | Parameters |
-|----------|-------------|------------|
-| **Buy & Hold** | Single asset buy and hold | symbol, allocation |
-| **Balanced Portfolio** | Static multi-asset allocation | allocations dict |
-| **Momentum** | Moving average crossover | short_window, long_window |
-| **Rebalance** | Periodic rebalancing | allocations, frequency |
-| **RSI Oversold** | RSI-based mean reversion | symbol, rsi_period, oversold_level |
-| **MACD** | MACD crossover signals | symbol, fast, slow, signal |
-| **Bollinger Bands** | Band-based mean reversion | symbol, period, num_std |
-
 ## Testing
 
 ```bash
@@ -131,15 +140,6 @@ pytest test_strategies.py --cov=src
 # Run specific test class
 pytest test_strategies.py::TestBuyAndHold -v
 ```
-
-## Technology Stack
-
-- **Backend**: Flask 3.0+, Python 3.12
-- **Data Source**: Yahoo Finance (yfinance)
-- **Financial Libraries**: numpy, scipy
-- **Frontend**: Vanilla JavaScript, Chart.js
-- **Styling**: Custom CSS (Material 3 design)
-- **Deployment**: Render (Gunicorn WSGI server)
 
 ## Known Limitations
 
